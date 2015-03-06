@@ -1,7 +1,7 @@
+import copy
 import six
 
 from rohm.fields import BaseField, IntegerField
-
 from rohm.connection import get_connection
 from rohm.exceptions import DoesNotExist
 
@@ -46,20 +46,26 @@ class Model(six.with_metaclass(ModelMetaclass)):
     Things on the class (use underscores)
     _pk_field
     """
+    track_modified_fields = False
+    save_modified_only = True
 
     def __init__(self, _new=True, **kwargs):
         """
         Args:
         ------
-        _new: Is this a brand new thing, or loaded from Redis
+        _new: Is this a brand new thing_, or loaded from Redis
 
         """
         self._data = {}
         self._new = _new
+        self._orig_data = {}
 
         for key, val in kwargs.items():
             if key in self._fields:
                 setattr(self, key, val)
+
+        if self.track_modified_fields:
+            self._reset_orig_data()
 
     @classmethod
     def get(cls, pk=None, id=None):
@@ -82,21 +88,41 @@ class Model(six.with_metaclass(ModelMetaclass)):
         # create in Redis if it doesn't exist
         pass
 
-    def _get_data_with_fields(self):
+    def _get_data_with_fields(self, data=None):
         data_with_fields = []
-        for key, val in self._data.items():
+        data = data or self._data
+        for key, val in data.items():
             field = self._get_field(key)
             data_with_fields.append((key, val, field))
         return data_with_fields
 
-    def save(self):
+    def save(self, force=False, modified_only=False):
         # self.validate()
+        modified_only = modified_only or self.save_modified_only
 
         redis_key = self.get_redis_key()
-        print 'save to', redis_key
 
-        cleaned_data = self.get_cleaned_data()
-        conn.hmset(redis_key, cleaned_data)
+        if self._new and not force and conn.exists(redis_key):
+            raise Exception('Object already exists')
+
+        if modified_only:
+            modified_data = self._get_modified_fields()
+            cleaned_data = self.get_cleaned_data(data=modified_data)
+        else:
+            cleaned_data = self.get_cleaned_data()
+
+        if cleaned_data:
+
+            print 'writing:', redis_key, cleaned_data
+            conn.hmset(redis_key, cleaned_data)
+
+            if self.track_modified_fields:
+                self._reset_orig_data()
+        else:
+            print 'warning no save'
+        # now it's been saved
+        self._new = False
+
 
     # def validate(self):
     #     pass
@@ -104,9 +130,16 @@ class Model(six.with_metaclass(ModelMetaclass)):
     def _get_field(self, name):
         return self._fields[name]
 
-    def get_cleaned_data(self, fields=None):
+    def get_cleaned_data(self, data=None):
         cleaned_data = {}
-        for name, val, field in self._get_data_with_fields():
+
+        data = data or {}
+        if data is None:
+            data = self._data
+
+        # for name, val, field in self._get_data_with_fields():
+        for name, val in data.items():
+            field = self._get_field(name)
             field.validate(val)
             cleaned_val = field._to_redis(val)
             cleaned_data[name] = cleaned_val
@@ -123,3 +156,26 @@ class Model(six.with_metaclass(ModelMetaclass)):
     def generate_redis_key(cls, pk):
         key = '{}:{}'.format(cls._key_prefix, pk)
         return key
+
+    def _reset_orig_data(self):
+        """
+        Reset _orig_data back
+        """
+        self._orig_data = copy.deepcopy(self._data)
+
+    def _get_modified_fields(self):
+        """
+        Get the fields that have changed on the model since loading it
+        Works by comparing values, so should work for mutable JSON fields too
+        Returns a dictionary of {field_name: new_value}
+        """
+        fields = {}
+        for key, val in self._data.iteritems():
+            if val != self._orig_data[key]:
+                fields[key] = val
+
+        return fields
+
+    @property
+    def _modified_field_names(self):
+        return set(self._get_modified_fields().keys())
