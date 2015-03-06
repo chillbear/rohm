@@ -3,7 +3,7 @@ import six
 from rohm.fields import BaseField, IntegerField
 
 from rohm.connection import get_connection
-
+from rohm.exceptions import DoesNotExist
 
 conn = get_connection()
 
@@ -47,8 +47,15 @@ class Model(six.with_metaclass(ModelMetaclass)):
     _pk_field
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, _new=True, **kwargs):
+        """
+        Args:
+        ------
+        _new: Is this a brand new thing, or loaded from Redis
+
+        """
         self._data = {}
+        self._new = _new
 
         for key, val in kwargs.items():
             if key in self._fields:
@@ -59,7 +66,12 @@ class Model(six.with_metaclass(ModelMetaclass)):
         # get from redis
         pk = pk or id
         redis_key = cls.generate_redis_key(pk)
-        print conn.hgetall(redis_key)
+        data = conn.hgetall(redis_key)
+
+        if data:
+            return cls(new=False, **data)
+        else:
+            raise DoesNotExist
 
     def get_or_create(self):
         # create in Redis if it doesn't exist
