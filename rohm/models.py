@@ -82,10 +82,35 @@ class Model(six.with_metaclass(ModelMetaclass)):
         # create in Redis if it doesn't exist
         pass
 
+    def _get_data_with_fields(self):
+        data_with_fields = []
+        for key, val in self._data.items():
+            field = self._get_field(key)
+            data_with_fields.append((key, val, field))
+        return data_with_fields
+
     def save(self):
+        # self.validate()
+
         redis_key = self.get_redis_key()
         print 'save to', redis_key
-        conn.hmset(redis_key, self._data)
+
+        cleaned_data = self.get_cleaned_data()
+        conn.hmset(redis_key, cleaned_data)
+
+    # def validate(self):
+    #     pass
+
+    def _get_field(self, name):
+        return self._fields[name]
+
+    def get_cleaned_data(self, fields=None):
+        cleaned_data = {}
+        for name, val, field in self._get_data_with_fields():
+            field.validate(val)
+            cleaned_val = field._to_redis(val)
+            cleaned_data[name] = cleaned_val
+        return cleaned_data
 
     def get_redis_key(self):
         pk = getattr(self, self._pk_field)
