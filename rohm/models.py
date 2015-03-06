@@ -66,9 +66,14 @@ class Model(six.with_metaclass(ModelMetaclass)):
         # get from redis
         pk = pk or id
         redis_key = cls.generate_redis_key(pk)
-        data = conn.hgetall(redis_key)
+        raw_data = conn.hgetall(redis_key)
 
-        if data:
+        if raw_data:
+            data = {}
+            for k, v in raw_data.items():
+                if k in cls._fields:
+                    field = cls._fields[k]
+                    data[k] = field.from_redis(v)
             return cls(new=False, **data)
         else:
             raise DoesNotExist

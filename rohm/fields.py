@@ -13,9 +13,23 @@ class BaseField(object):
     def __set__(self, instance, value):
         instance._data[self.field_name] = value
 
+    def convert_to_redis(self, val):
+        pass
+
+    def to_redis(self, val):
+        return str(val)
+
+    def from_redis(self, val):
+        return val
+
 
 class IntegerField(BaseField):
-    pass
+    @classmethod
+    def to_redis(self, val):
+        return str(val)
+
+    def from_redis(self, val):
+        return int(val)
 
 
 class CharField(BaseField):
