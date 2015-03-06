@@ -11,38 +11,41 @@ conn = get_connection()
 class ModelMetaclass(type):
     def __new__(meta, name, bases, attrs):
 
-        primary_key = None
+        # Figure out name of primary key field
+        pk_field = None
         for key, val in attrs.items():
             if isinstance(val, BaseField) and val.is_primary_key:
-                primary_key = key
+                pk_field = key
                 break
 
-        if primary_key is None:
+        if pk_field is None:
             id_field = IntegerField(primary_key=True)
-            primary_key = 'id'
-            attrs[primary_key] = id_field
+            pk_field = 'id'
+            attrs[pk_field] = id_field
 
-        attrs['_primary_key'] = primary_key
+        attrs['_pk_field'] = pk_field
         return super(ModelMetaclass, meta).__new__(meta, name, bases, attrs)
 
     def __init__(cls, name, bases, attrs):
 
         super(ModelMetaclass, cls).__init__(name, bases, attrs)
 
+        cls._key_prefix = name.lower()
+
         cls._fields = {}
-        # cls._primary_key = None
         for key, val in attrs.items():
             if isinstance(val, BaseField):
                 # let field know its name!
                 field = val
-                val.field_name = field
+                val.field_name = key
                 cls._fields[key] = field
-
-                # if field.is_primary_key:
-                #     cls._primary_key = key
 
 
 class Model(six.with_metaclass(ModelMetaclass)):
+    """
+    Things on the class (use underscores)
+    _pk_field
+    """
 
     def __init__(self, **kwargs):
         self._data = {}
@@ -51,14 +54,30 @@ class Model(six.with_metaclass(ModelMetaclass)):
             if key in self._fields:
                 setattr(self, key, val)
 
-    def get(self):
+    @classmethod
+    def get(cls, pk=None, id=None):
         # get from redis
-        pass
+        pk = pk or id
+        redis_key = cls.generate_redis_key(pk)
+        print conn.hgetall(redis_key)
 
     def get_or_create(self):
         # create in Redis if it doesn't exist
         pass
 
     def save(self):
-        # save to redis fool!
-        pass
+        redis_key = self.get_redis_key()
+        print 'save to', redis_key
+        conn.hmset(redis_key, self._data)
+
+    def get_redis_key(self):
+        pk = getattr(self, self._pk_field)
+        if not pk:
+            raise Exception('No primary key set!')
+
+        return self.generate_redis_key(pk)
+
+    @classmethod
+    def generate_redis_key(cls, pk):
+        key = '{}:{}'.format(cls._key_prefix, pk)
+        return key
