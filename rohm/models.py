@@ -59,6 +59,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
         self._data = {}
         self._new = _new
         self._orig_data = {}
+        self._loaded_fields = set()
 
         for key, val in kwargs.items():
             if key in self._fields:
@@ -68,33 +69,60 @@ class Model(six.with_metaclass(ModelMetaclass)):
             self._reset_orig_data()
 
     @classmethod
-    def get(cls, pk=None, id=None):
+    def get(cls, pk=None, id=None, fields=None):
         # get from redis
         pk = pk or id
         redis_key = cls.generate_redis_key(pk)
-        raw_data = conn.hgetall(redis_key)
+
+        if fields:
+            raw_vals = conn.hmget(redis_key, fields)
+            # loaded_fields = set(fields)
+            raw_data = {k: v for k, v in zip(fields, raw_vals)}
+        else:
+            raw_data = conn.hgetall(redis_key)
+            # loaded_fields = set(self._get_field_names())
 
         if raw_data:
             data = {}
             for k, v in raw_data.items():
                 if k in cls._fields:
-                    field = cls._fields[k]
-                    data[k] = field.from_redis(v)
+                    data[k] = cls._convert_field_from_raw(k, v)
             return cls(new=False, **data)
         else:
             raise DoesNotExist
+
+    @classmethod
+    def _convert_field_from_raw(cls, field_name, raw_val):
+        """
+        For a given field name and raw data, get a cleaned data value
+        """
+        field = cls._get_field(field_name)
+        cleaned = field.from_redis(raw_val)
+        return cleaned
+
+    def _get_field_from_redis(self, field_name):
+        redis_key = self.get_redis_key()
+        raw = conn.hget(redis_key, field_name)
+        cleaned = self._convert_field_from_raw(field_name, raw)
+        # cleaned = self._get_field(field_name).from_redis(raw)
+        return cleaned
+
+    def _load_field_from_redis(self, field_name):
+        val = self._get_field_from_redis(field_name)
+        setattr(self, field_name, val)
+        return val
 
     def get_or_create(self):
         # create in Redis if it doesn't exist
         pass
 
-    def _get_data_with_fields(self, data=None):
-        data_with_fields = []
-        data = data or self._data
-        for key, val in data.items():
-            field = self._get_field(key)
-            data_with_fields.append((key, val, field))
-        return data_with_fields
+    # def _get_data_with_fields(self, data=None):
+    #     data_with_fields = []
+    #     data = data or self._data
+    #     for key, val in data.items():
+    #         field = self._get_field(key)
+    #         data_with_fields.append((key, val, field))
+    #     return data_with_fields
 
     def save(self, force=False, modified_only=False):
         # self.validate()
@@ -105,7 +133,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
         if self._new and not force and conn.exists(redis_key):
             raise Exception('Object already exists')
 
-        if modified_only:
+        if modified_only and not self._new:
             modified_data = self._get_modified_fields()
             cleaned_data = self.get_cleaned_data(data=modified_data)
         else:
@@ -123,19 +151,24 @@ class Model(six.with_metaclass(ModelMetaclass)):
         # now it's been saved
         self._new = False
 
-
     # def validate(self):
     #     pass
 
-    def _get_field(self, name):
-        return self._fields[name]
+    @classmethod
+    def _get_field(cls, name):
+        return cls._fields[name]
+
+    @classmethod
+    def _get_field_names(cls):
+        return list(cls._fields.keys())
 
     def get_cleaned_data(self, data=None):
         cleaned_data = {}
 
-        data = data or {}
         if data is None:
             data = self._data
+        else:
+            data = data or {}
 
         # for name, val, field in self._get_data_with_fields():
         for name, val in data.items():

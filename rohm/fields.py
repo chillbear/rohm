@@ -11,11 +11,18 @@ class BaseField(object):
         self.allow_none = allow_none
 
     def __get__(self, instance, owner):
-        val = instance._data.get(self.field_name, None)
+        field_name = self.field_name
+
+        if field_name not in instance._loaded_fields:
+            return instance._load_field_from_redis(field_name)
+
+        val = instance._data.get(field_name, None)
         return val
 
     def __set__(self, instance, value):
-        instance._data[self.field_name] = value
+        field_name = self.field_name
+        instance._data[field_name] = value
+        instance._loaded_fields.add(field_name)
 
     # this is the actual function called
     def to_redis(self, val):
