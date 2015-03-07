@@ -3,13 +3,12 @@ from dateutil.parser import parse as dateparse
 
 import six
 
-from rohm.exceptions import FieldValidationError
+# from rohm.exceptions import FieldValidationError
 import pytz
 from pytz import utc
 
 
 class BaseField(object):
-    # _field_name = None  # placeholder
     allowed_types = None
 
     def __init__(self, primary_key=False, required=False, allow_none=True, *args, **kwargs):
@@ -53,8 +52,6 @@ class BaseField(object):
 
     def _validate(self, val):
         pass
-    #     if not isinstance(val, self.allowed_types):
-    #         raise FieldValidationError('Incorrect type')
 
     def _to_redis(self, val):
         return str(val)
@@ -65,9 +62,6 @@ class BaseField(object):
 
 class IntegerField(BaseField):
     allowed_types = six.integer_types
-    # def _validate(self, val):
-    #     if not isinstance(val, six.integer_types):
-    #         raise FieldValidationError('Not an integer type!')
 
     def _to_redis(self, val):
         return str(val)
@@ -82,10 +76,6 @@ class CharField(BaseField):
 
 class BooleanField(BaseField):
     allowed_types = bool
-
-    # def _validate(self, val):
-    #     if not isinstance(val, bool):
-    #         raise FieldValidationError('Not an boolean type!')
 
     def _to_redis(self, val):
         return '1' if val else '0'
@@ -112,9 +102,6 @@ class DateTimeField(BaseField):
 
     def _from_redis(self, val):
         dt = dateparse(val)
-        # if not dt.tzinfo:
-        #     print 'Warning, no tzinfo'
-
         dt = utc.localize(dt)
 
         return dt
