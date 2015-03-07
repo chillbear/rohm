@@ -46,7 +46,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
     Things on the class (use underscores)
     _pk_field
     """
-    track_modified_fields = False
+    track_modified_fields = True
     save_modified_only = True
 
     def __init__(self, _new=True, **kwargs):
@@ -87,7 +87,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
             for k, v in raw_data.items():
                 if k in cls._fields:
                     data[k] = cls._convert_field_from_raw(k, v)
-            return cls(new=False, **data)
+            return cls(_new=False, **data)
         else:
             raise DoesNotExist
 
