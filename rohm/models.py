@@ -75,6 +75,8 @@ class Model(six.with_metaclass(ModelMetaclass)):
         redis_key = cls.generate_redis_key(pk)
 
         if fields:
+            if cls._pk_field not in fields:
+                fields.append(cls._pk_field)
             raw_vals = conn.hmget(redis_key, fields)
             # loaded_fields = set(fields)
             raw_data = {k: v for k, v in zip(fields, raw_vals)}
