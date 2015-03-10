@@ -170,6 +170,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
             raise Exception('Object already exists')
 
         if modified_only and not self._new:
+            print 'modified only..'
             modified_data = self._get_modified_fields()
             cleaned_data = self.get_cleaned_data(data=modified_data)
         else:
@@ -240,8 +241,11 @@ class Model(six.with_metaclass(ModelMetaclass)):
         """
         fields = {}
         for key, val in self._data.iteritems():
-            if val != self._orig_data[key]:
-                fields[key] = val
+            try:
+                if val != self._orig_data[key]:
+                    fields[key] = val
+            except KeyError:
+                pass
 
         return fields
 
