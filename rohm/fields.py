@@ -139,8 +139,16 @@ class RelatedModelField(BaseField):
 
     def __set__(self, instance, value):
         # equiv of doing 'driver_id = 5'
+
+        # set the ID field
         id_field_name = instance._get_related_id_field_name(self.field_name)
-        setattr(instance, id_field_name, value.pk)
+
+        id_value = None if value is None else value.pk
+
+        setattr(instance, id_field_name, id_value)
+
+        # also set object, of course
+        instance._loaded_related_fields[self.field_name] = value
 
 
 class RelatedModelIdField(IntegerField):
@@ -153,6 +161,8 @@ class RelatedModelIdField(IntegerField):
         self.model_field_name = model_field_name
 
     # TODO unset the model when we change this..
-    # def __set__(self, instance, value):
-    #     if instance._loaded_related_fields[self.model_field_name]:
-    #         del instance._loaded_related_fields[self.model_field_name]
+    def __set__(self, instance, value):
+        super(RelatedModelIdField, self).__set__(instance, value)
+
+        if self.model_field_name in instance._loaded_related_fields:
+            del instance._loaded_related_fields[self.model_field_name]

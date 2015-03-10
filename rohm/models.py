@@ -252,3 +252,9 @@ class Model(six.with_metaclass(ModelMetaclass)):
     @property
     def _modified_field_names(self):
         return set(self._get_modified_fields().keys())
+
+    def __repr__(self):
+        return '<{}:{}>'.format(self.__class__.__name__, str(self))
+
+    def __str__(self):
+        return str(self.pk)
