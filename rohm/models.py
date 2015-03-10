@@ -1,7 +1,8 @@
 import copy
 import six
 
-from rohm.fields import BaseField, IntegerField
+from rohm import model_registry
+from rohm.fields import BaseField, IntegerField, RelatedModelField, RelatedModelIdField
 from rohm.connection import get_connection
 from rohm.exceptions import DoesNotExist
 
@@ -16,7 +17,11 @@ class ModelMetaclass(type):
         for key, val in attrs.items():
             if isinstance(val, BaseField) and val.is_primary_key:
                 pk_field = key
-                break
+                # break
+            if isinstance(val, RelatedModelField):
+                # add a id field
+                id_field = '{}_id'.format(key)
+                attrs[id_field] = RelatedModelIdField(key)
 
         if pk_field is None:
             id_field = IntegerField(primary_key=True)
@@ -40,6 +45,9 @@ class ModelMetaclass(type):
                 val.field_name = key
                 cls._fields[key] = field
 
+        print 'registered class', cls, type(cls)
+        model_registry[name] = cls
+
 
 class Model(six.with_metaclass(ModelMetaclass)):
     """
@@ -60,6 +68,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
         self._new = _new
         self._orig_data = {}
         self._loaded_fields = set()
+        self._loaded_related_fields = {}
 
         for key, val in kwargs.items():
             if key in self._fields:
@@ -67,6 +76,10 @@ class Model(six.with_metaclass(ModelMetaclass)):
 
         if self.track_modified_fields:
             self._reset_orig_data()
+
+    @property
+    def pk(self):
+        return getattr(self, self._pk_field)
 
     @classmethod
     def get(cls, pk=None, id=None, fields=None):
@@ -113,6 +126,27 @@ class Model(six.with_metaclass(ModelMetaclass)):
         val = self._get_field_from_redis(field_name)
         setattr(self, field_name, val)
         return val
+
+    def _load_related_field(self, field_name):
+        related_field = self._get_field(field_name)
+        id_field_name = self._get_related_id_field_name(field_name)
+        id = getattr(self, id_field_name)
+        # NOW GET RELATED MODEL
+        model_cls = related_field.model_cls
+        instance = self._get_related_model_by_pk(model_cls, id)
+
+        self._loaded_related_fields[field_name] = instance
+
+        return instance
+
+    def _get_related_model_by_pk(self, model_cls, pk):
+        """
+        Can override this to customize related model fetching (e.g. LiteModel)
+        """
+        return model_cls.get(pk)
+
+    def _get_related_id_field_name(self, field_name):
+        return '{}_id'.format(field_name)
 
     def get_or_create(self):
         # create in Redis if it doesn't exist

@@ -4,6 +4,7 @@ from dateutil.parser import parse as dateparse
 import six
 
 # from rohm.exceptions import FieldValidationError
+from rohm import model_registry
 import pytz
 from pytz import utc
 
@@ -15,6 +16,8 @@ class BaseField(object):
         self.is_primary_key = primary_key
         self.required = required
         self.allow_none = allow_none
+
+        self.field_name = None   # needs to be set
 
     def __get__(self, instance, owner):
         field_name = self.field_name
@@ -105,3 +108,50 @@ class DateTimeField(BaseField):
         dt = utc.localize(dt)
 
         return dt
+
+
+class RelatedModelField(BaseField):
+    def __init__(self, model_cls, *args, **kwargs):
+        super(RelatedModelField, self).__init__(self, *args, **kwargs)
+
+        self._model_cls = model_cls
+
+    @property
+    def model_cls(self):
+        # replace string with the actual model
+        if isinstance(self._model_cls, six.string_types):
+            self._model_cls = model_registry[self._model_cls]
+
+        return self._model_cls
+
+    # def _get_id_field(self, instance):
+    #     return instance._get_field('{}_id'.format(self.field_name))
+
+    def __get__(self, instance, owner):
+        field_name = self.field_name
+
+        if field_name not in instance._loaded_related_fields:
+            instance._load_related_field(field_name)
+
+        val = instance._loaded_related_fields.get(field_name, None)
+        return val
+
+    def __set__(self, instance, value):
+        # equiv of doing 'driver_id = 5'
+        id_field_name = instance._get_related_id_field_name(self.field_name)
+        setattr(instance, id_field_name, value.pk)
+
+
+class RelatedModelIdField(IntegerField):
+    def _get_model_field(self, instance):
+        return instance._get_field(self.model_field_name)
+
+    def __init__(self, model_field_name, *args, **kwargs):
+        # the actual RelatedModelField this corresponds to..
+        super(RelatedModelIdField, self).__init__(*args, **kwargs)
+        self.model_field_name = model_field_name
+
+    # TODO unset the model when we change this..
+    # def __set__(self, instance, value):
+    #     if instance._loaded_related_fields[self.model_field_name]:
+    #         del instance._loaded_related_fields[self.model_field_name]
