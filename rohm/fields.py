@@ -13,7 +13,6 @@ class BaseField(object):
     allowed_types = None
 
     def __init__(self, primary_key=False, required=False, allow_none=True, *args, **kwargs):
-        print 'initializing', self, primary_key
         self.is_primary_key = primary_key
         self.required = required
         self.allow_none = allow_none

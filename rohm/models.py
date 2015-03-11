@@ -45,7 +45,6 @@ class ModelMetaclass(type):
                 val.field_name = key
                 cls._fields[key] = field
 
-        print 'registered class', cls, type(cls)
         model_registry[name] = cls
 
 
@@ -170,7 +169,6 @@ class Model(six.with_metaclass(ModelMetaclass)):
             raise Exception('Object already exists')
 
         if modified_only and not self._new:
-            print 'modified only..'
             modified_data = self._get_modified_fields()
             cleaned_data = self.get_cleaned_data(data=modified_data)
         else:
