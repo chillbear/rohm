@@ -1,5 +1,6 @@
 import datetime
 from dateutil.parser import parse as dateparse
+import types
 
 import six
 
@@ -12,10 +13,12 @@ from pytz import utc
 class BaseField(object):
     allowed_types = None
 
-    def __init__(self, primary_key=False, required=False, allow_none=True, *args, **kwargs):
+    def __init__(self, primary_key=False, required=False, allow_none=True, default=None,
+                 *args, **kwargs):
         self.is_primary_key = primary_key
         self.required = required
         self.allow_none = allow_none
+        self.default = default
 
         self.field_name = None   # needs to be set
 
@@ -32,6 +35,14 @@ class BaseField(object):
         field_name = self.field_name
         instance._data[field_name] = value
         instance._loaded_fields.add(field_name)
+
+    def get_default_value(self):
+        if isinstance(self.default, types.FunctionType):
+            val = self.default()
+        else:
+            val = self.default
+
+        return val
 
     # this is the actual function called
     def to_redis(self, val):

@@ -1,4 +1,6 @@
 import copy
+import types
+
 import six
 
 from rohm import model_registry
@@ -72,6 +74,20 @@ class Model(six.with_metaclass(ModelMetaclass)):
         for key, val in kwargs.items():
             if key in self._fields:
                 setattr(self, key, val)
+                # field = self._fields[key]
+                # if val is None and field.default:
+                #     # set default value
+                #     default_val = self._fields[key].get_default_value()
+                #     setattr(self, key, default_val)
+                # else:
+                #     setattr(self, key, val)
+
+        # check default vals
+        for field_name, field in self._fields.items():
+            if field_name not in self._data and field.default:
+                # set default value
+                default_val = field.get_default_value()
+                setattr(self, field_name, default_val)
 
         if self.track_modified_fields:
             self._reset_orig_data()
