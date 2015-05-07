@@ -25,7 +25,7 @@ class BaseField(object):
     def __get__(self, instance, owner):
         field_name = self.field_name
 
-        if not self.is_primary_key and field_name not in instance._loaded_fields:
+        if not self.is_primary_key and field_name not in instance._loaded_field_names:
             return instance._load_field_from_redis(field_name)
 
         val = instance._data.get(field_name, None)
@@ -34,7 +34,7 @@ class BaseField(object):
     def __set__(self, instance, value):
         field_name = self.field_name
         instance._data[field_name] = value
-        instance._loaded_fields.add(field_name)
+        instance._loaded_field_names.add(field_name)
 
     def get_default_value(self):
         if isinstance(self.default, types.FunctionType):
@@ -141,10 +141,10 @@ class RelatedModelField(BaseField):
     def __get__(self, instance, owner):
         field_name = self.field_name
 
-        if field_name not in instance._loaded_related_fields:
+        if field_name not in instance._loaded_related_field_data:
             instance._load_related_field(field_name)
 
-        val = instance._loaded_related_fields.get(field_name, None)
+        val = instance._loaded_related_field_data.get(field_name, None)
         return val
 
     def __set__(self, instance, value):
@@ -158,7 +158,7 @@ class RelatedModelField(BaseField):
         setattr(instance, id_field_name, id_value)
 
         # also set object, of course
-        instance._loaded_related_fields[self.field_name] = value
+        instance._loaded_related_field_data[self.field_name] = value
 
 
 class RelatedModelIdField(IntegerField):
@@ -174,5 +174,5 @@ class RelatedModelIdField(IntegerField):
     def __set__(self, instance, value):
         super(RelatedModelIdField, self).__set__(instance, value)
 
-        if self.model_field_name in instance._loaded_related_fields:
-            del instance._loaded_related_fields[self.model_field_name]
+        if self.model_field_name in instance._loaded_related_field_data:
+            del instance._loaded_related_field_data[self.model_field_name]

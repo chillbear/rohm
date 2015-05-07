@@ -54,6 +54,15 @@ class Model(six.with_metaclass(ModelMetaclass)):
     """
     Things on the class (use underscores)
     _pk_field
+
+    _fields: dictionary of Field instances of the class
+
+    Note on terminology:
+    - field: a Field object instance.
+    ... but sometimes means "field name" as shorthand, and sometimes a field_name/field_val pair
+    - field_name: the name of a field
+    - field_val: the value of a Model instance's field
+
     """
     track_modified_fields = True
     save_modified_only = True
@@ -68,19 +77,12 @@ class Model(six.with_metaclass(ModelMetaclass)):
         self._data = {}
         self._new = _new
         self._orig_data = {}
-        self._loaded_fields = set()
-        self._loaded_related_fields = {}
+        self._loaded_field_names = set()
+        self._loaded_related_field_data = {}
 
         for key, val in kwargs.items():
             if key in self._fields:
                 setattr(self, key, val)
-                # field = self._fields[key]
-                # if val is None and field.default:
-                #     # set default value
-                #     default_val = self._fields[key].get_default_value()
-                #     setattr(self, key, default_val)
-                # else:
-                #     setattr(self, key, val)
 
         # check default vals
         for field_name, field in self._fields.items():
@@ -106,11 +108,9 @@ class Model(six.with_metaclass(ModelMetaclass)):
             if cls._pk_field not in fields:
                 fields.append(cls._pk_field)
             raw_vals = conn.hmget(redis_key, fields)
-            # loaded_fields = set(fields)
             raw_data = {k: v for k, v in zip(fields, raw_vals)}
         else:
             raw_data = conn.hgetall(redis_key)
-            # loaded_fields = set(self._get_field_names())
 
         if raw_data:
             data = {}
@@ -150,7 +150,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
         model_cls = related_field.model_cls
         instance = self._get_related_model_by_pk(model_cls, id)
 
-        self._loaded_related_fields[field_name] = instance
+        self._loaded_related_field_data[field_name] = instance
 
         return instance
 
@@ -191,7 +191,6 @@ class Model(six.with_metaclass(ModelMetaclass)):
             cleaned_data = self.get_cleaned_data()
 
         if cleaned_data:
-
             print 'writing:', redis_key, cleaned_data
             conn.hmset(redis_key, cleaned_data)
 
