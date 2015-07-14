@@ -1,7 +1,6 @@
-from datetime import datetime
 
 import pytest
-from pytz import utc
+from mock import call
 
 from rohm.models import Model
 from rohm import fields
@@ -59,3 +58,27 @@ def test_datetime_field():
 
     foo = SimpleDefaultModel()
     assert foo.count == 5
+
+
+def test_partial_fields(mockconn):
+
+    class Foo(Model):
+        name = fields.CharField()
+        num = fields.IntegerField()
+
+    foo = Foo(id=1, name='foo', num=20)
+    foo.save()
+
+    foo = Foo.get(id=1, fields=['name'])
+    assert mockconn.hmget.call_count == 1
+
+    mockconn.reset_mock()
+
+    # access another field
+    assert foo.num == 20
+    assert mockconn.hget.call_count == 1
+    assert mockconn.hget.call_args_list == [call('foo:1', 'num')]
+
+    # access again
+    print foo.num
+    assert mockconn.hget.call_count == 1

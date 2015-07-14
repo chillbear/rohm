@@ -1,16 +1,8 @@
-from datetime import datetime
 
 from mock import call
-import pytest
-from pytz import utc
 
 from rohm.models import Model
 from rohm import fields
-from rohm.exceptions import DoesNotExist
-from rohm.utils import utcnow
-
-
-
 
 
 def test_related(mockconn, mocker):
@@ -24,8 +16,6 @@ def test_related(mockconn, mocker):
 
     bar1 = Bar(id=1, title='bar1')
     bar1.save()
-
-    # bar_get = mocker.spy(bar1, 'get')
 
     bar2 = Bar(id=2, title='bar2')
     bar2.save()
@@ -42,8 +32,5 @@ def test_related(mockconn, mocker):
 
     # Should only read related field here
     bar = foo.bar
-    assert foo.bar.title == 'bar1'
+    assert bar.title == 'bar1'
     assert mockconn.hgetall.call_args_list == [call('bar:1')]
-
-
-    # import ipdb; ipdb.set_trace()
