@@ -1,6 +1,7 @@
 import datetime
 from dateutil.parser import parse as dateparse
 import types
+import json
 
 import six
 
@@ -96,6 +97,18 @@ class BooleanField(BaseField):
 
     def _from_redis(self, val):
         return bool(int(val))
+
+
+class JSONField(BaseField):
+    allowed_types = (dict, list, tuple)
+
+    # preprocess?
+
+    def _to_redis(self, val):
+        return json.dumps(val)
+
+    def _from_redis(self, val):
+        return json.loads(val)
 
 
 class DateTimeField(BaseField):

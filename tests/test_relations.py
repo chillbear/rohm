@@ -23,7 +23,6 @@ def test_related(mockconn, mocker):
     foo = Foo(id=1, name='foo', bar=bar1)
     foo.save()
 
-    # mockconnection.
     foo = Foo.get(1)
     assert mockconn.hgetall.call_count == 1
     assert mockconn.hgetall.call_args_list == [call('foo:1')]
