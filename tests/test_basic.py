@@ -32,6 +32,13 @@ def test_simple_model():
     foo = Foo.get(id=1)
     check_attrs(foo)
 
+    # Change a field
+    foo.num = 456
+    foo.save()
+
+    foo = Foo.get(1)
+    assert foo.num == 456
+
     # Getting non-existent model
     with pytest.raises(DoesNotExist):
         Foo.get(id=2)
@@ -40,13 +47,6 @@ def test_simple_model():
     foo = Foo(name='1', num=2)
     with pytest.raises(Exception):
         foo.save()
-
-    # Change a field
-    foo.num = 456
-    foo.save()
-
-    foo = Foo.get(1)
-    assert foo.num == 456
 
 
 def test_none_field():
@@ -58,7 +58,7 @@ def test_none_field():
     assert foo.name is None
     foo.save()
 
-    foo = Foo.get(1)
+    foo = Foo.get(id=1)
     assert foo.name is None
     foo.name = 'asdf'
     foo.save()
