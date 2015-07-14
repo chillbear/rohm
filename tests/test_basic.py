@@ -49,7 +49,7 @@ def test_simple_model():
         foo.save()
 
 
-def test_none_field():
+def test_none_field(mockconn):
 
     class Foo(Model):
         name = fields.CharField()
@@ -58,10 +58,20 @@ def test_none_field():
     assert foo.name is None
     foo.save()
 
+    # should be no calls get (bug with name __get__ calling from Redis)
+    assert mockconn.hmget.call_count == 0
+
+    mockconn.reset_mock()
+
     foo = Foo.get(id=1)
-    assert foo.name is None
+    assert mockconn.mock_calls == [call.hgetall('foo:1')]
+    # assert foo._loaded_field_names == {'id', 'name'}
+
+    assert foo.name is None   # this should not trigger Redis call
+
     foo.name = 'asdf'
     foo.save()
+    assert mockconn.mock_calls[-1] == call.hmset('foo:1', {'name': 'asdf'})
 
 
 def test_datetime_field():

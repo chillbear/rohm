@@ -26,7 +26,7 @@ class BaseField(object):
     def __get__(self, instance, owner):
         field_name = self.field_name
 
-        if not self.is_primary_key and field_name not in instance._loaded_field_names:
+        if not instance._new and not self.is_primary_key and field_name not in instance._loaded_field_names:
             return instance._load_field_from_redis(field_name)
 
         val = instance._data.get(field_name, None)

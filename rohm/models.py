@@ -67,7 +67,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
     track_modified_fields = True
     save_modified_only = True
 
-    def __init__(self, _new=True, **kwargs):
+    def __init__(self, _new=True, _partial=False, **kwargs):
         """
         Args:
         ------
@@ -83,6 +83,10 @@ class Model(six.with_metaclass(ModelMetaclass)):
         for key, val in kwargs.items():
             if key in self._fields:
                 setattr(self, key, val)
+
+        if not _new and not _partial:
+            # indicate that all fields are "loaded"
+            self._loaded_field_names = set(self._get_field_names())
 
         # check default vals
         for field_name, field in self._fields.items():
@@ -109,15 +113,17 @@ class Model(six.with_metaclass(ModelMetaclass)):
                 fields.append(cls._pk_field)
             raw_vals = conn.hmget(redis_key, fields)
             raw_data = {k: v for k, v in zip(fields, raw_vals)}
+            partial = True
         else:
             raw_data = conn.hgetall(redis_key)
+            partial = False
 
         if raw_data:
             data = {}
             for k, v in raw_data.items():
                 if k in cls._fields:
                     data[k] = cls._convert_field_from_raw(k, v)
-            return cls(_new=False, **data)
+            return cls(_new=False, _partial=partial, **data)
         else:
             raise DoesNotExist
 
@@ -226,6 +232,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
             field.validate(val)
             cleaned_val = field._to_redis(val)
             cleaned_data[name] = cleaned_val
+
         return cleaned_data
 
     def get_redis_key(self):
@@ -258,7 +265,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
                 if val != self._orig_data[key]:
                     fields[key] = val
             except KeyError:
-                pass
+                fields[key] = val
 
         return fields
 
