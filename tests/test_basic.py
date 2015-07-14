@@ -41,6 +41,28 @@ def test_simple_model():
     with pytest.raises(Exception):
         foo.save()
 
+    # Change a field
+    foo.num = 456
+    foo.save()
+
+    foo = Foo.get(1)
+    assert foo.num == 456
+
+
+def test_none_field():
+
+    class Foo(Model):
+        name = fields.CharField()
+
+    foo = Foo(id=1)
+    assert foo.name is None
+    foo.save()
+
+    foo = Foo.get(1)
+    assert foo.name is None
+    foo.name = 'asdf'
+    foo.save()
+
 
 def test_datetime_field():
     class DefaultTimeModel(Model):
