@@ -65,13 +65,20 @@ def test_none_field(mockconn):
 
     foo = Foo.get(id=1)
     assert mockconn.mock_calls == [call.hgetall('foo:1')]
-    # assert foo._loaded_field_names == {'id', 'name'}
+    assert foo._loaded_field_names == {'id', 'name'}
 
     assert foo.name is None   # this should not trigger Redis call
 
     foo.name = 'asdf'
+    assert foo._get_modified_fields() == {'name': 'asdf'}
     foo.save()
     assert mockconn.mock_calls[-1] == call.hmset('foo:1', {'name': 'asdf'})
+
+    # Now try overriding existing value with None! this is tricky..
+    foo.name = None
+    # import pdb; pdb.set_trace()
+
+    foo.save()
 
 
 def test_datetime_field():
