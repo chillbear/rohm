@@ -29,7 +29,17 @@ def test_related(conn, mocker):
 
     conn.reset_mock()
 
+    # Reading bar_id should not access Redis
+    assert foo.bar_id == 1
+    assert conn.mock_calls == []
+
     # Should only read related field here
     bar = foo.bar
     assert bar.title == 'bar1'
     assert conn.hgetall.call_args_list == [call('bar:1')]
+
+    # Reassign bar
+    conn.reset_mock()
+    foo.bar = bar2
+    foo.save()
+    assert conn.mock_calls == [call.hmset('foo:1', {'bar_id': '2'})]
