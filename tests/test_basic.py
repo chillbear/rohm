@@ -156,6 +156,7 @@ def test_save_modified_only(save_modified_only, conn):
         foo.save()
         conn.hmset.assert_called_once_with('foo:1', data)
 
+
 def test_datetime_field():
     class DefaultTimeModel(Model):
         created_at = fields.DateTimeField(default=utcnow)
