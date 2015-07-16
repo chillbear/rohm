@@ -14,6 +14,8 @@ def test_related(conn, mocker):
     class Bar(Model):
         title = fields.CharField()
 
+    key = 'foo:1'
+
     bar1 = Bar(id=1, title='bar1')
     bar1.save()
 
@@ -25,7 +27,7 @@ def test_related(conn, mocker):
 
     foo = Foo.get(1)
     assert conn.hgetall.call_count == 1
-    assert conn.hgetall.call_args_list == [call('foo:1')]
+    assert conn.hgetall.call_args_list == [call(key)]
 
     conn.reset_mock()
 
@@ -42,4 +44,16 @@ def test_related(conn, mocker):
     conn.reset_mock()
     foo.bar = bar2
     foo.save()
-    assert conn.mock_calls == [call.hmset('foo:1', {'bar_id': '2'})]
+    assert conn.mock_calls == [call.hmset(key, {'bar_id': '2'})]
+
+    # Assign by setting bar_id
+    conn.reset_mock()
+    foo.bar_id = 1
+    foo.save()
+    assert conn.mock_calls == [call.hmset(key, {'bar_id': '1'})]
+
+    # Set to null
+    conn.reset_mock()
+    foo.bar = None
+    foo.save()
+    assert conn.mock_calls == [call.hdel(key, 'bar_id')]
