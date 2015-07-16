@@ -74,11 +74,12 @@ def test_none_field(mockconn):
     foo.save()
     assert mockconn.mock_calls[-1] == call.hmset('foo:1', {'name': 'asdf'})
 
-    # Now try overriding existing value with None! this is tricky..
-    foo.name = None
-    # import pdb; pdb.set_trace()
+    mockconn.reset_mock()
 
+    # Now try overriding existing value with None! Should do a delete operation
+    foo.name = None
     foo.save()
+    assert mockconn.mock_calls == [call.hdel('foo:1', 'name')]
 
 
 def test_datetime_field():

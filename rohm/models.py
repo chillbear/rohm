@@ -7,6 +7,7 @@ from rohm import model_registry
 from rohm.fields import BaseField, IntegerField, RelatedModelField, RelatedModelIdField
 from rohm.connection import get_connection
 from rohm.exceptions import DoesNotExist
+from rohm.utils import redis_operation
 
 conn = get_connection()
 
@@ -192,13 +193,40 @@ class Model(six.with_metaclass(ModelMetaclass)):
 
         if modified_only and not self._new:
             modified_data = self._get_modified_fields()
-            cleaned_data = self.get_cleaned_data(data=modified_data)
+            cleaned_data, none_keys = self.get_cleaned_data(data=modified_data)
         else:
-            cleaned_data = self.get_cleaned_data()
+            cleaned_data, none_keys = self.get_cleaned_data()
 
-        if cleaned_data:
-            print 'writing:', redis_key, cleaned_data
-            conn.hmset(redis_key, cleaned_data)
+        if cleaned_data or none_keys:
+            print 'writing:', redis_key, cleaned_data, none_keys
+
+            use_pipe = cleaned_data and none_keys
+
+            with redis_operation(conn, pipelined=use_pipe) as _conn:
+                if cleaned_data:
+                    _conn.hmset(redis_key, cleaned_data)
+
+                if none_keys:
+                    _conn.hdel(redis_key, *none_keys)
+
+            # if cleaned_data:
+            # real_data, none_data = self._process_none_values(cleaned_data)
+            # use_pipe = False
+            # _conn = conn
+            # if cleaned_data and none_keys:
+            #     use_pipe = True
+            #     _conn = conn.pipeline()
+            #
+            # # pipe = conn.pipeline()
+            #
+            # if cleaned_data:
+            #     _conn.hmset(redis_key, cleaned_data)
+            #
+            # if none_keys:
+            #     _conn.hdel(redis_key, *none_keys)
+            #
+            # if use_pipe:
+            #     _conn.execute()
 
             if self.track_modified_fields:
                 self._reset_orig_data()
@@ -218,8 +246,13 @@ class Model(six.with_metaclass(ModelMetaclass)):
     def _get_field_names(cls):
         return list(cls._fields.keys())
 
-    def get_cleaned_data(self, data=None):
+    def get_cleaned_data(self, data=None, separate_none=True):
+        """
+        - separate_none: move any None values into a separate list, and return
+          (non_none_data, none_keys)
+        """
         cleaned_data = {}
+        none_keys = []
 
         if data is None:
             data = self._data
@@ -230,10 +263,17 @@ class Model(six.with_metaclass(ModelMetaclass)):
         for name, val in data.items():
             field = self._get_field(name)
             field.validate(val)
-            cleaned_val = field._to_redis(val)
-            cleaned_data[name] = cleaned_val
+            cleaned_val = field.to_redis(val)
 
-        return cleaned_data
+            if separate_none and val is None:
+                none_keys.append(name)
+            else:
+                cleaned_data[name] = cleaned_val
+
+        if separate_none:
+            return cleaned_data, none_keys
+        else:
+            return cleaned_data
 
     def get_redis_key(self):
         pk = getattr(self, self._pk_field)
@@ -241,6 +281,17 @@ class Model(six.with_metaclass(ModelMetaclass)):
             raise Exception('No primary key set!')
 
         return self.generate_redis_key(pk)
+
+    # def _process_none_values(self, data):
+    #     non_empty_data = {}
+    #     none_values = []
+    #     for key, val in data.items():
+    #         if val is None:
+    #             none_values.append(key)
+    #         else:
+    #             non_empty_data[key] = val
+    #
+    #     return non_empty_data, none_values
 
     @classmethod
     def generate_redis_key(cls, pk):

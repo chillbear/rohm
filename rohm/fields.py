@@ -47,12 +47,16 @@ class BaseField(object):
 
     # this is the actual function called
     def to_redis(self, val):
-        return self._to_redis(val)
+        if self.allow_none and val is None:
+            return None
+        else:
+            return self._to_redis(val)
 
     def from_redis(self, val):
         if self.allow_none and val is None:
             return None
-        return self._from_redis(val)
+        else:
+            return self._from_redis(val)
 
     def validate(self, val):
 
