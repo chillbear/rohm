@@ -50,11 +50,6 @@ def test_simple_model():
 
 
 class TestNoneField(object):
-    # @pytest.fixture
-    # def Foo(self):
-    #     class Foo(Model):
-    #         name = fields.CharField()
-    #     return Foo
 
     def test_none_field_basics(self, conn):
 
@@ -128,6 +123,39 @@ class TestNoneField(object):
         assert data == {'id': '1', 'a': 'alpha'}
 
 
+@pytest.mark.parametrize('save_modified_only', (False, True))
+def test_save_modified_only(save_modified_only, conn):
+    class Foo(Model):
+        name = fields.CharField()
+        num = fields.IntegerField()
+    Foo.save_modified_only = save_modified_only
+
+    foo = Foo(id=1, name='foo', num=12)
+    foo.save()
+
+    foo = Foo.get(1)
+
+    conn.reset_mock()
+    foo.name = 'something'
+    foo.save()
+
+    if save_modified_only:
+        print conn.mock_calls
+        conn.hmset.assert_called_once_with('foo:1', {'name': 'something'})
+
+        # next save should do nothing
+        foo.save()
+        conn.reset_mock()
+        assert conn.mock_calls == []
+    else:
+        data = {'id': '1', 'name': 'something', 'num': '12'}
+        conn.hmset.assert_called_once_with('foo:1', data)
+
+        # other saves will still save, sadly
+        conn.reset_mock()
+        foo.save()
+        conn.hmset.assert_called_once_with('foo:1', data)
+
 def test_datetime_field():
     class DefaultTimeModel(Model):
         created_at = fields.DateTimeField(default=utcnow)
@@ -147,7 +175,10 @@ def test_datetime_field():
 
 
 def test_partial_fields(conn):
-
+    """
+    Test that we can selectively load a few fields from Redis, and the unloaded ones will
+    get loaded on demand
+    """
     class Foo(Model):
         name = fields.CharField()
         num = fields.IntegerField()
@@ -156,6 +187,7 @@ def test_partial_fields(conn):
     foo.save()
 
     foo = Foo.get(id=1, fields=['name'])
+    assert foo._loaded_field_names == {'id', 'name'}
     assert conn.hmget.call_count == 1
 
     conn.reset_mock()
@@ -164,6 +196,7 @@ def test_partial_fields(conn):
     assert foo.num == 20
     assert conn.hget.call_count == 1
     assert conn.hget.call_args_list == [call('foo:1', 'num')]
+    assert foo._loaded_field_names == {'id', 'name', 'num'}
 
     # access again
     print foo.num

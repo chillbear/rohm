@@ -209,34 +209,12 @@ class Model(six.with_metaclass(ModelMetaclass)):
                 if none_keys:
                     _conn.hdel(redis_key, *none_keys)
 
-            # if cleaned_data:
-            # real_data, none_data = self._process_none_values(cleaned_data)
-            # use_pipe = False
-            # _conn = conn
-            # if cleaned_data and none_keys:
-            #     use_pipe = True
-            #     _conn = conn.pipeline()
-            #
-            # # pipe = conn.pipeline()
-            #
-            # if cleaned_data:
-            #     _conn.hmset(redis_key, cleaned_data)
-            #
-            # if none_keys:
-            #     _conn.hdel(redis_key, *none_keys)
-            #
-            # if use_pipe:
-            #     _conn.execute()
-
             if self.track_modified_fields:
                 self._reset_orig_data()
         else:
             print 'warning no save'
         # now it's been saved
         self._new = False
-
-    # def validate(self):
-    #     pass
 
     @classmethod
     def _get_field(cls, name):
