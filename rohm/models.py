@@ -129,6 +129,16 @@ class Model(six.with_metaclass(ModelMetaclass)):
             raise DoesNotExist
 
     @classmethod
+    def set(cls, pk=None, id=None, **data):
+        pk = pk or id
+        redis_key = cls.generate_redis_key(pk)
+
+        if conn.exists(redis_key):
+            raise DoesNotExist
+
+        conn.hmset(redis_key, data)
+
+    @classmethod
     def _convert_field_from_raw(cls, field_name, raw_val):
         """
         For a given field name and raw data, get a cleaned data value
@@ -215,6 +225,10 @@ class Model(six.with_metaclass(ModelMetaclass)):
             print 'warning no save'
         # now it's been saved
         self._new = False
+
+    def delete(self):
+        redis_key = self.get_redis_key()
+        conn.delete(redis_key)
 
     @classmethod
     def _get_field(cls, name):
