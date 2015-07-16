@@ -14,7 +14,7 @@ def commonsetup():
 
 
 @pytest.fixture
-def mockconn(commonsetup, mocker):
+def conn(commonsetup, mocker):
     from rohm.models import conn
     mocked = mocker.patch('rohm.models.conn', wraps=conn)
     return mocked

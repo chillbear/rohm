@@ -49,37 +49,83 @@ def test_simple_model():
         foo.save()
 
 
-def test_none_field(mockconn):
+class TestNoneField(object):
+    # @pytest.fixture
+    # def Foo(self):
+    #     class Foo(Model):
+    #         name = fields.CharField()
+    #     return Foo
 
-    class Foo(Model):
-        name = fields.CharField()
+    def test_none_field_basics(self, conn):
 
-    foo = Foo(id=1)
-    assert foo.name is None
-    foo.save()
+        """
+        Test behavior of allow_none fields
+        - reading a field that is None
+        - loading an object with a None field, we should distinguish between knowing that a field is
+          None, vs not having loaded the field at all
+        - try saving a field from None -> something, and vice versa
+        """
 
-    # should be no calls get (bug with name __get__ calling from Redis)
-    assert mockconn.hmget.call_count == 0
+        class Foo(Model):
+            name = fields.CharField()
+        return Foo
 
-    mockconn.reset_mock()
+        foo = Foo(id=1)
+        assert foo.name is None
+        foo.save()
 
-    foo = Foo.get(id=1)
-    assert mockconn.mock_calls == [call.hgetall('foo:1')]
-    assert foo._loaded_field_names == {'id', 'name'}
+        redis_key = 'foo:1'
 
-    assert foo.name is None   # this should not trigger Redis call
+        # should be no calls get (bug with name __get__ calling from Redis)
+        assert conn.hmget.call_count == 0
 
-    foo.name = 'asdf'
-    assert foo._get_modified_fields() == {'name': 'asdf'}
-    foo.save()
-    assert mockconn.mock_calls[-1] == call.hmset('foo:1', {'name': 'asdf'})
+        conn.reset_mock()
 
-    mockconn.reset_mock()
+        # understand that we already "loaded" that this field is None
+        foo = Foo.get(id=1)
+        assert conn.mock_calls == [call.hgetall(redis_key)]
+        assert foo._loaded_field_names == {'id', 'name'}
 
-    # Now try overriding existing value with None! Should do a delete operation
-    foo.name = None
-    foo.save()
-    assert mockconn.mock_calls == [call.hdel('foo:1', 'name')]
+        assert foo.name is None   # this should not trigger Redis call
+
+        foo.name = 'asdf'
+        assert foo._get_modified_fields() == {'name': 'asdf'}
+        foo.save()
+        assert conn.mock_calls[-1] == call.hmset(redis_key, {'name': 'asdf'})
+        assert conn.hgetall(redis_key) == {'id': '1', 'name': 'asdf'}
+
+        conn.reset_mock()
+
+        # Now try overriding existing value with None! Should do a delete operation
+        foo.name = None
+        foo.save()
+        assert conn.mock_calls == [call.hdel(redis_key, 'name')]
+        assert conn.hgetall(redis_key) == {'id': '1'}
+
+    def test_none_field_mixed(self, conn):
+        """
+        Try saving a real value and a None value at same time
+        """
+        class Foo(Model):
+            a = fields.CharField()
+            b = fields.CharField()
+
+        foo = Foo(id=1, a='foo', b='bar')
+        foo.save()
+        data = conn.hgetall('foo:1')
+        assert data == {'id': '1', 'a': 'foo', 'b': 'bar'}
+
+        foo = Foo.get(1)
+        foo.a = 'alpha'
+        foo.b = None
+        foo.save()
+
+        # Should be a pipeline, but that's all we can introspect
+        assert conn.mock_calls[-1] == call.pipeline()
+
+        # Check what's in redis
+        data = conn.hgetall('foo:1')
+        assert data == {'id': '1', 'a': 'alpha'}
 
 
 def test_datetime_field():
@@ -100,7 +146,7 @@ def test_datetime_field():
     assert foo.count == 5
 
 
-def test_partial_fields(mockconn):
+def test_partial_fields(conn):
 
     class Foo(Model):
         name = fields.CharField()
@@ -110,15 +156,15 @@ def test_partial_fields(mockconn):
     foo.save()
 
     foo = Foo.get(id=1, fields=['name'])
-    assert mockconn.hmget.call_count == 1
+    assert conn.hmget.call_count == 1
 
-    mockconn.reset_mock()
+    conn.reset_mock()
 
     # access another field
     assert foo.num == 20
-    assert mockconn.hget.call_count == 1
-    assert mockconn.hget.call_args_list == [call('foo:1', 'num')]
+    assert conn.hget.call_count == 1
+    assert conn.hget.call_args_list == [call('foo:1', 'num')]
 
     # access again
     print foo.num
-    assert mockconn.hget.call_count == 1
+    assert conn.hget.call_count == 1

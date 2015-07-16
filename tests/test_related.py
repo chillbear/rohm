@@ -5,7 +5,7 @@ from rohm.models import Model
 from rohm import fields
 
 
-def test_related(mockconn, mocker):
+def test_related(conn, mocker):
 
     class Foo(Model):
         name = fields.CharField()
@@ -24,12 +24,12 @@ def test_related(mockconn, mocker):
     foo.save()
 
     foo = Foo.get(1)
-    assert mockconn.hgetall.call_count == 1
-    assert mockconn.hgetall.call_args_list == [call('foo:1')]
+    assert conn.hgetall.call_count == 1
+    assert conn.hgetall.call_args_list == [call('foo:1')]
 
-    mockconn.reset_mock()
+    conn.reset_mock()
 
     # Should only read related field here
     bar = foo.bar
     assert bar.title == 'bar1'
-    assert mockconn.hgetall.call_args_list == [call('bar:1')]
+    assert conn.hgetall.call_args_list == [call('bar:1')]
