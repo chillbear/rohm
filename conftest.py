@@ -48,27 +48,30 @@ class PipelineSpy(object):
     def add_mock(self, method, mock):
         self.method_mocks[method] = mock
 
-    def assert_called(self, method, *args, **kwargs):
+    def assert_called_with(self, method, *args, **kwargs):
         mock = self.method_mocks[method]
         call = mock.call_args
 
-        import ipdb; ipdb.set_trace()
         assert call
 
         self._compare_call_args(call, args, kwargs)
+
+    def assert_call_count(self, method, count):
+        mock = self.method_mocks[method]
+        assert mock.call_count == count
 
     def _compare_call_args(self, call, expected_args, expected_kwargs):
         called_args = call[0][1:]     # ignore first arg, self
         called_kwargs = call[1]
 
-        print 'compare', called_args, called_kwargs
+        # print 'compare', called_args, called_kwargs
 
         if called_args:
             assert called_args == expected_args
         if called_kwargs:
             assert called_kwargs == expected_kwargs
 
-    def reset_mock(self):
+    def reset_mocks(self):
         for mock in self.method_mocks.values():
             mock.reset_mock()
 
