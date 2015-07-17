@@ -48,17 +48,34 @@ class PipelineSpy(object):
     def add_mock(self, method, mock):
         self.method_mocks[method] = mock
 
-    def assert_called_with(self, method, *args, **kwargs):
-        mock = self.method_mocks[method]
-        call = mock.call_args
+        spy = MethodSpy(mock)
+        setattr(self, method, spy)   # make dot accessible
 
-        assert call
+    # def assert_called_with(self, method, *args, **kwargs):
+    #     mock = self.method_mocks[method]
+    #     call = mock.call_args
+    #
+    #     assert call
+    #
+    #     self._compare_call_args(call, args, kwargs)
+    #
+    # def assert_call_count(self, method, count):
+    #     mock = self.method_mocks[method]
+    #     assert mock.call_count == count
 
+    def reset_mocks(self):
+        for mock in self.method_mocks.values():
+            mock.reset_mock()
+
+
+class MethodSpy(object):
+    def __init__(self, mock):
+        # this is the mocked method
+        self.mock = mock
+
+    def assert_called_with(self, *args, **kwargs):
+        call = self.mock.call_args
         self._compare_call_args(call, args, kwargs)
-
-    def assert_call_count(self, method, count):
-        mock = self.method_mocks[method]
-        assert mock.call_count == count
 
     def _compare_call_args(self, call, expected_args, expected_kwargs):
         called_args = call[0][1:]     # ignore first arg, self
@@ -71,9 +88,13 @@ class PipelineSpy(object):
         if called_kwargs:
             assert called_kwargs == expected_kwargs
 
-    def reset_mocks(self):
-        for mock in self.method_mocks.values():
-            mock.reset_mock()
+    # def __getattr__(self, name):
+    #     """
+    #     Forward all attribute calls..?
+    #     """
+    #     return getattr(self.mock, name)
+
+
 
 
 @pytest.fixture

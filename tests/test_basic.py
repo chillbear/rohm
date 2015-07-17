@@ -117,8 +117,11 @@ class TestNoneField(object):
 
         assert conn.mock_calls[-1] == call.pipeline()
 
-        pipe.assert_called_with('hmset', 'foo:1', {'a': 'alpha'})
-        pipe.assert_called_with('hdel', 'foo:1', 'b')
+        # pipe.assert_called_with('hmset', 'foo:1', {'a': 'alpha'})
+        # pipe.assert_called_with('hdel', 'foo:1', 'b')
+        # import ipdb; ipdb.set_trace()
+        pipe.hmset.assert_called_with('foo:1', {'a': 'alpha'})
+        pipe.hdel.assert_called_with('foo:1', 'b')
 
         # Check what's in redis
         data = conn.hgetall('foo:1')
