@@ -118,8 +118,11 @@ class TestNoneField(object):
 
         assert conn.mock_calls[-1] == call.pipeline()
 
-        assert pipe.hmset.call_args[0][1:] == ('foo:1', {'a': 'alpha'})
-        assert pipe.hdel.call_args[0][1:] == ('foo:1', 'b')
+        # assert pipe.hmset.call_args[0][1:] == ('foo:1', {'a': 'alpha'})
+        # assert pipe.hdel.call_args[0][1:] == ('foo:1', 'b')
+
+        pipe.assert_called('hmget', 'foo:1', {'a': 'alpha'})
+        pipe.assert_called('hdel', 'foo:1', 'b')
 
         # Check what's in redis
         data = conn.hgetall('foo:1')
