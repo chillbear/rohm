@@ -1,6 +1,7 @@
 
 import pytest
 from mock import call
+from redis.client import StrictPipeline
 
 from rohm.models import Model
 from rohm import fields
@@ -118,9 +119,14 @@ class TestNoneField(object):
 
         assert conn.mock_calls[-1] == call.pipeline()
 
-        # assert pipe.hmset.call_args[0][1:] == ('foo:1', {'a': 'alpha'})
+        # from redis.client import StrictPipeline
         # assert pipe.hdel.call_args[0][1:] == ('foo:1', 'b')
+        assert StrictPipeline.hdel.call_args[0][1:] == ('foo:1', 'b')
 
+        # import ipdb; ipdb.set_trace()
+
+        # import ipdb; ipdb.set_trace()
+        # assert pipe.hmset.call_args[0][1:] == ('foo:1', {'a': 'alpha'})
         pipe.assert_called('hmget', 'foo:1', {'a': 'alpha'})
         pipe.assert_called('hdel', 'foo:1', 'b')
 

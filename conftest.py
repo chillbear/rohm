@@ -52,8 +52,8 @@ class PipelineSpy(object):
         mock = self.method_mocks[method]
         call = mock.call_args
 
+        import ipdb; ipdb.set_trace()
         assert call
-        # import ipdb; ipdb.set_trace()
 
         self._compare_call_args(call, args, kwargs)
 
@@ -75,17 +75,18 @@ class PipelineSpy(object):
 
 @pytest.fixture
 def pipe(commonsetup, mocker):
-    from redis.client import BasePipeline, StrictRedis
+    from redis.client import BasePipeline, StrictRedis, StrictPipeline
 
     pipe_spy = PipelineSpy()
+    # because of inheritance, we just pass the actual method we care about
 
     for method in redis_methods:
-        mock = mocker.spy(StrictRedis, method)
-        pipe_spy.add_mock(method, mock)
+        mocker.spy(StrictRedis, method)
+        pipe_spy.add_mock(method, getattr(StrictPipeline, method))
 
     for method in pipeline_methods:
-        mock = mocker.spy(BasePipeline, method)
-        pipe_spy.add_mock(method, mock)
+        mocker.spy(BasePipeline, method)
+        pipe_spy.add_mock(method, getattr(StrictPipeline, method))
 
     # return StrictPipeline
     # return PipelineSpy()
