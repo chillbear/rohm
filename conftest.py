@@ -1,6 +1,7 @@
 import pytest
 from rohm.connection import get_connection
 from rohm import model_registry
+import mock
 
 
 @pytest.yield_fixture(autouse=True)
@@ -51,17 +52,9 @@ class PipelineSpy(object):
         spy = MethodSpy(mock)
         setattr(self, method, spy)   # make dot accessible
 
-    # def assert_called_with(self, method, *args, **kwargs):
-    #     mock = self.method_mocks[method]
-    #     call = mock.call_args
-    #
-    #     assert call
-    #
-    #     self._compare_call_args(call, args, kwargs)
-    #
-    # def assert_call_count(self, method, count):
-    #     mock = self.method_mocks[method]
-    #     assert mock.call_count == count
+    def assert_called_with(self, method, *args, **kwargs):
+        mock = getattr(self, method)
+        mock.assert_called_with(*args, **kwargs)
 
     def reset_mocks(self):
         for mock in self.method_mocks.values():
@@ -75,26 +68,38 @@ class MethodSpy(object):
 
     def assert_called_with(self, *args, **kwargs):
         call = self.mock.call_args
+
         self._compare_call_args(call, args, kwargs)
+
+    def _convert_call(self, call):
+        args = call[0][1:]   # erase first arg
+        kwargs = call[1]
+        return mock.call(*args, **kwargs)
+
+    @property
+    def call_args(self):
+        _call_args = self.mock.call_args
+        return self._convert_call(_call_args)
+
+    @property
+    def call_args_list(self):
+        _call_args_list = self.mock.call_args_list
+        return [self._convert_call(call) for call in _call_args_list]
 
     def _compare_call_args(self, call, expected_args, expected_kwargs):
         called_args = call[0][1:]     # ignore first arg, self
         called_kwargs = call[1]
-
-        # print 'compare', called_args, called_kwargs
 
         if called_args:
             assert called_args == expected_args
         if called_kwargs:
             assert called_kwargs == expected_kwargs
 
-    # def __getattr__(self, name):
-    #     """
-    #     Forward all attribute calls..?
-    #     """
-    #     return getattr(self.mock, name)
-
-
+    def __getattr__(self, name):
+        """
+        Forward all attribute calls..?
+        """
+        return getattr(self.mock, name)
 
 
 @pytest.fixture

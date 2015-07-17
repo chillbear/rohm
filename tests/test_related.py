@@ -36,9 +36,12 @@ def test_related(conn, pipe):
     assert conn.mock_calls == []
 
     # Should only read related field here
+    pipe.reset_mocks()
+
     bar = foo.bar
     assert bar.title == 'bar1'
-    assert conn.hgetall.call_args_list == [call('bar:1')]
+    # assert conn.hgetall.call_args_list == [call('bar:1')]
+    assert pipe.hgetall.call_args_list == [call('bar:1')]
 
     # Reassign bar
     conn.reset_mock()

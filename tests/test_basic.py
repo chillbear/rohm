@@ -8,7 +8,7 @@ from rohm.exceptions import DoesNotExist
 # from redis.client import StrictPipeline
 
 
-def test_simple_model():
+def test_simple_model(pipe):
 
     class Foo(Model):
         name = fields.CharField()
@@ -117,9 +117,6 @@ class TestNoneField(object):
 
         assert conn.mock_calls[-1] == call.pipeline()
 
-        # pipe.assert_called_with('hmset', 'foo:1', {'a': 'alpha'})
-        # pipe.assert_called_with('hdel', 'foo:1', 'b')
-        # import ipdb; ipdb.set_trace()
         pipe.hmset.assert_called_with('foo:1', {'a': 'alpha'})
         pipe.hdel.assert_called_with('foo:1', 'b')
 
@@ -170,6 +167,8 @@ def test_ttl(conn, pipe):
     foo = Foo(id=1, name='foo')
     foo.save()
 
+    # pipe.hmset.assert_called_with('foo:1', {'id': '1', 'name': 'foo'})
+    # pipe.expire.assert_called_with('foo:1', 30)
     pipe.assert_called_with('hmset', 'foo:1', {'id': '1', 'name': 'foo'})
     pipe.assert_called_with('expire', 'foo:1', 30)
 
@@ -191,21 +190,19 @@ def test_partial_fields(conn, pipe):
 
     foo = Foo.get(id=1, fields=['name'])
     assert foo._loaded_field_names == {'id', 'name'}
-    pipe.assert_call_count('hmset', 1)
-    # assert pipe.hmget.call_count == 1
+    assert pipe.hmget.call_count == 1
 
     pipe.reset_mocks()
 
     # access another field
     assert foo.num == 20
-    # assert pipe.hget.call_count == 1
-    # assert pipe.hget.call_args[0][1:] == ('foo:1', 'num')
-    pipe.assert_call_count('hget', 1)
-    pipe.assert_called_with('hget', 'foo:1', 'num')
+
+    # pipe.assert_called_with('hget', 'foo:1', 'num')
+    pipe.hget.assert_called_with('foo:1', 'num')
+    assert pipe.hget.call_count == 1
 
     assert foo._loaded_field_names == {'id', 'name', 'num'}
 
     # access again
     print foo.num
-    # assert pipe.hget.call_count == 1
-    pipe.assert_call_count('hget', 1)
+    assert pipe.hget.call_count == 1
