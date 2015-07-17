@@ -27,7 +27,7 @@ def test_related(conn, pipe):
 
     foo = Foo.get(1)
     assert pipe.hgetall.call_count == 1
-    assert pipe.hgetall.call_args[0][1:] == (key,)
+    assert pipe.hgetall.call_args == call(key)
 
     conn.reset_mock()
 
