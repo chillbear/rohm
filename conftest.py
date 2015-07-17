@@ -67,9 +67,8 @@ class MethodSpy(object):
         self.mock = mock
 
     def assert_called_with(self, *args, **kwargs):
-        call = self.mock.call_args
-
-        self._compare_call_args(call, args, kwargs)
+        call = self.call_args
+        assert call == mock.call(*args, **kwargs)
 
     def _convert_call(self, call):
         args = call[0][1:]   # erase first arg
@@ -85,15 +84,6 @@ class MethodSpy(object):
     def call_args_list(self):
         _call_args_list = self.mock.call_args_list
         return [self._convert_call(call) for call in _call_args_list]
-
-    def _compare_call_args(self, call, expected_args, expected_kwargs):
-        called_args = call[0][1:]     # ignore first arg, self
-        called_kwargs = call[1]
-
-        if called_args:
-            assert called_args == expected_args
-        if called_kwargs:
-            assert called_kwargs == expected_kwargs
 
     def __getattr__(self, name):
         """
@@ -117,6 +107,4 @@ def pipe(commonsetup, mocker):
         mocker.spy(BasePipeline, method)
         pipe_spy.add_mock(method, getattr(StrictPipeline, method))
 
-    # return StrictPipeline
-    # return PipelineSpy()
     return pipe_spy
