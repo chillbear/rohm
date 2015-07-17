@@ -18,6 +18,9 @@ redis_methods = [
     'set',
     'delete',
     'hmset',
+    'hmget',
+    'hset',
+    'hget',
     'hgetall',
     'hdel',
     'expire',
@@ -39,7 +42,7 @@ def conn(commonsetup, mocker):
 
 
 @pytest.fixture
-def pipeline(commonsetup, mocker):
+def pipe(commonsetup, mocker):
     from redis.client import BasePipeline, StrictRedis, StrictPipeline
 
     for method in redis_methods:

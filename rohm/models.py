@@ -104,29 +104,70 @@ class Model(six.with_metaclass(ModelMetaclass)):
         return getattr(self, self._pk_field)
 
     @classmethod
-    def get(cls, pk=None, id=None, fields=None):
+    def get(cls, pks=None, id=None, fields=None, raise_missing_exception=None):
         # get from redis
-        pk = pk or id
-        redis_key = cls.generate_redis_key(pk)
+        pks = pks or id
+
+        single = not isinstance(pks, (list, tuple))
+
+        if raise_missing_exception is None:
+            raise_missing_exception = single
+
+        if single:
+            pks = [pks]
 
         if fields:
             if cls._pk_field not in fields:
                 fields.append(cls._pk_field)
-            raw_vals = conn.hmget(redis_key, fields)
-            raw_data = {k: v for k, v in zip(fields, raw_vals)}
-            partial = True
-        else:
-            raw_data = conn.hgetall(redis_key)
-            partial = False
 
-        if raw_data:
+        partial = bool(fields)
+
+        pipe = conn.pipeline()
+        for pk in pks:
+            redis_key = cls.generate_redis_key(pk)
+            if partial:
+                pipe.hmget(redis_key, fields)
+                # raw_vals = conn.hmget(redis_key, fields)
+                # raw_data = {k: v for k, v in zip(fields, raw_vals)}
+            else:
+                pipe.hgetall(redis_key)
+                # raw_data = conn.hgetall(redis_key)
+                # partial = False
+
+        results = pipe.execute()
+        print 'results', results
+
+        instances = []
+        for result in results:
+            if not result:
+                if raise_missing_exception:
+                    raise DoesNotExist
+                else:
+                    continue
+
+            if partial:
+                raw_data = {k: v for k, v in zip(fields, result)}
+            else:
+                raw_data = result
+
             data = {}
             for k, v in raw_data.items():
                 if k in cls._fields:
                     data[k] = cls._convert_field_from_raw(k, v)
-            return cls(_new=False, _partial=partial, **data)
+            instance = cls(_new=False, _partial=partial, **data)
+            instances.append(instance)
+
+        if single:
+            return instances[0]
         else:
-            raise DoesNotExist
+            return instances
+
+    #
+    # @classmethod
+    # def get_multiple(cls, pks=None):
+    #     pipe = conn.pipeline()
+    #     for pk in pks:
+    #
 
     @classmethod
     def set(cls, pk=None, id=None, **data):

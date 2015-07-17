@@ -5,7 +5,7 @@ from rohm.models import Model
 from rohm import fields
 
 
-def test_related(conn, mocker):
+def test_related(conn, pipe):
 
     class Foo(Model):
         name = fields.CharField()
@@ -26,8 +26,8 @@ def test_related(conn, mocker):
     foo.save()
 
     foo = Foo.get(1)
-    assert conn.hgetall.call_count == 1
-    assert conn.hgetall.call_args_list == [call(key)]
+    assert pipe.hgetall.call_count == 1
+    assert pipe.hgetall.call_args[0][1:] == (key,)
 
     conn.reset_mock()
 

@@ -98,7 +98,7 @@ class TestNoneField(object):
         assert conn.mock_calls == [call.hdel(redis_key, 'name')]
         assert conn.hgetall(redis_key) == {'id': '1'}
 
-    def test_none_field_mixed(self, conn, pipeline):
+    def test_none_field_mixed(self, conn, pipe):
         """
         Try saving a real value and a None value at same time
         """
@@ -118,8 +118,8 @@ class TestNoneField(object):
 
         assert conn.mock_calls[-1] == call.pipeline()
 
-        assert pipeline.hmset.call_args[0][1:] == ('foo:1', {'a': 'alpha'})
-        assert pipeline.hdel.call_args[0][1:] == ('foo:1', 'b')
+        assert pipe.hmset.call_args[0][1:] == ('foo:1', {'a': 'alpha'})
+        assert pipe.hdel.call_args[0][1:] == ('foo:1', 'b')
 
         # Check what's in redis
         data = conn.hgetall('foo:1')
@@ -160,7 +160,7 @@ def test_save_modified_only(save_modified_only, conn):
         conn.hmset.assert_called_once_with('foo:1', data)
 
 
-def test_ttl(conn, pipeline):
+def test_ttl(conn, pipe):
     class Foo(Model):
         ttl = 30
         name = fields.CharField()
@@ -169,14 +169,14 @@ def test_ttl(conn, pipeline):
     foo.save()
 
     # import ipdb; ipdb.set_trace()
-    assert pipeline.hmset.call_args[0][1:] == ('foo:1', {'id': '1', 'name': 'expire'})
-    assert pipeline.expire.call_args[0][1:] == ('foo:1', 30)
+    assert pipe.hmset.call_args[0][1:] == ('foo:1', {'id': '1', 'name': 'expire'})
+    assert pipe.expire.call_args[0][1:] == ('foo:1', 30)
 
     foo = Foo.get(id=1)
     assert foo.name == 'expire'
 
 
-def test_partial_fields(conn):
+def test_partial_fields(conn, pipe):
     """
     Test that we can selectively load a few fields from Redis, and the unloaded ones will
     get loaded on demand
@@ -190,16 +190,17 @@ def test_partial_fields(conn):
 
     foo = Foo.get(id=1, fields=['name'])
     assert foo._loaded_field_names == {'id', 'name'}
-    assert conn.hmget.call_count == 1
+    assert pipe.hmget.call_count == 1
 
-    conn.reset_mock()
+    # conn.reset_mock()
+    pipe.hset.reset_mock()
 
     # access another field
     assert foo.num == 20
-    assert conn.hget.call_count == 1
-    assert conn.hget.call_args_list == [call('foo:1', 'num')]
+    assert pipe.hget.call_count == 1
+    assert pipe.hget.call_args[0][1:] == ('foo:1', 'num')
     assert foo._loaded_field_names == {'id', 'name', 'num'}
 
     # access again
     print foo.num
-    assert conn.hget.call_count == 1
+    assert pipe.hget.call_count == 1
