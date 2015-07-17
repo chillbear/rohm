@@ -160,22 +160,20 @@ def test_save_modified_only(save_modified_only, conn):
         conn.hmset.assert_called_once_with('foo:1', data)
 
 
-def test_datetime_field():
-    class DefaultTimeModel(Model):
-        created_at = fields.DateTimeField(default=utcnow)
+def test_ttl(conn, pipeline):
+    class Foo(Model):
+        ttl = 30
+        name = fields.CharField()
 
-    foo = DefaultTimeModel(id=1)
+    foo = Foo(id=1, name='expire')
     foo.save()
 
-    foo = DefaultTimeModel.get(id=1)
-    assert foo.created_at
-    print foo.created_at
+    # import ipdb; ipdb.set_trace()
+    assert pipeline.hmset.call_args[0][1:] == ('foo:1', {'id': '1', 'name': 'expire'})
+    assert pipeline.expire.call_args[0][1:] == ('foo:1', 30)
 
-    class SimpleDefaultModel(Model):
-        count = fields.IntegerField(default=5)
-
-    foo = SimpleDefaultModel()
-    assert foo.count == 5
+    foo = Foo.get(id=1)
+    assert foo.name == 'expire'
 
 
 def test_partial_fields(conn):

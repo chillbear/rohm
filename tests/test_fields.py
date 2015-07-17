@@ -32,3 +32,23 @@ def test_fields():
     assert foo.name == 'foo'
     assert foo.num == 2
     assert foo.comments == comments
+
+
+def test_default_fields():
+    class SimpleDefaultModel(Model):
+        count = fields.IntegerField(default=5)
+
+    foo = SimpleDefaultModel()
+    assert foo.count == 5
+
+
+def test_datetime_field():
+    class DefaultTimeModel(Model):
+        created_at = fields.DateTimeField(default=utcnow)
+
+    foo = DefaultTimeModel(id=1)
+    foo.save()
+
+    foo = DefaultTimeModel.get(id=1)
+    assert foo.created_at
+    print foo.created_at

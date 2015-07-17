@@ -1,5 +1,4 @@
 import copy
-import types
 
 import six
 
@@ -67,6 +66,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
     """
     track_modified_fields = True
     save_modified_only = True
+    ttl = None
 
     def __init__(self, _new=True, _partial=False, **kwargs):
         """
@@ -136,7 +136,11 @@ class Model(six.with_metaclass(ModelMetaclass)):
         if conn.exists(redis_key):
             raise DoesNotExist
 
-        conn.hmset(redis_key, data)
+        with redis_operation(conn, pipelined=cls.ttl is not None) as _conn:
+            _conn.hmset(redis_key, data)
+
+            if cls.ttl:
+                _conn.expire()
 
     @classmethod
     def _convert_field_from_raw(cls, field_name, raw_val):
@@ -208,9 +212,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
             cleaned_data, none_keys = self.get_cleaned_data()
 
         if cleaned_data or none_keys:
-            print 'writing:', redis_key, cleaned_data, none_keys
-
-            use_pipe = cleaned_data and none_keys
+            use_pipe = cleaned_data and none_keys or self.ttl
 
             with redis_operation(conn, pipelined=use_pipe) as _conn:
                 if cleaned_data:
@@ -218,6 +220,9 @@ class Model(six.with_metaclass(ModelMetaclass)):
 
                 if none_keys:
                     _conn.hdel(redis_key, *none_keys)
+
+                if self.ttl:
+                    _conn.expire(redis_key, self.ttl)
 
             if self.track_modified_fields:
                 self._reset_orig_data()
