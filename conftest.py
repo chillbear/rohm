@@ -18,19 +18,27 @@ redis_methods = [
     'set',
     'delete',
     'hmset',
+    'hgetall',
     'hdel',
     'expire',
+    'pipeline',
+]
+
+pipeline_methods = [
+    'execute'
 ]
 
 
 @pytest.fixture
 def conn(commonsetup, mocker):
     from rohm.models import conn
-    from redis.client import StrictPipeline, Pipeline
+    from redis.client import BasePipeline, StrictRedis
     mocked = mocker.patch('rohm.models.conn', wraps=conn)
 
     for method in redis_methods:
-        mocker.spy(StrictPipeline, method)
-        mocker.spy(Pipeline, method)
+        mocker.spy(StrictRedis, method)
+
+    for method in pipeline_methods:
+        mocker.spy(BasePipeline, method)
 
     return mocked

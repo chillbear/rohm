@@ -6,6 +6,7 @@ from rohm.models import Model
 from rohm import fields
 from rohm.exceptions import DoesNotExist
 from rohm.utils import utcnow
+from redis.client import StrictPipeline
 
 
 def test_simple_model():
@@ -115,8 +116,10 @@ class TestNoneField(object):
         foo.b = None
         foo.save()
 
-        # Should be a pipeline, but that's all we can introspect
         assert conn.mock_calls[-1] == call.pipeline()
+
+        assert StrictPipeline.hmset.call_args[0][1:] == ('foo:1', {'a': 'alpha'})
+        assert StrictPipeline.hdel.call_args[0][1:] == ('foo:1', 'b')
 
         # Check what's in redis
         data = conn.hgetall('foo:1')
