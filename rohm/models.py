@@ -127,15 +127,10 @@ class Model(six.with_metaclass(ModelMetaclass)):
             redis_key = cls.generate_redis_key(pk)
             if partial:
                 pipe.hmget(redis_key, fields)
-                # raw_vals = conn.hmget(redis_key, fields)
-                # raw_data = {k: v for k, v in zip(fields, raw_vals)}
             else:
                 pipe.hgetall(redis_key)
-                # raw_data = conn.hgetall(redis_key)
-                # partial = False
 
         results = pipe.execute()
-        print 'results', results
 
         instances = []
         for result in results:

@@ -118,6 +118,7 @@ class TestNoneField(object):
         assert conn.mock_calls[-1] == call.pipeline()
 
         pipe.hmset.assert_called_with('foo:1', {'a': 'alpha'})
+
         pipe.hdel.assert_called_with('foo:1', 'b')
 
         # Check what's in redis
