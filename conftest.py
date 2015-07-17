@@ -13,19 +13,24 @@ def commonsetup():
     yield None
 
 
+redis_methods = [
+    'get',
+    'set',
+    'delete',
+    'hmset',
+    'hdel',
+    'expire',
+]
+
+
 @pytest.fixture
 def conn(commonsetup, mocker):
     from rohm.models import conn
+    from redis.client import StrictPipeline, Pipeline
     mocked = mocker.patch('rohm.models.conn', wraps=conn)
+
+    for method in redis_methods:
+        mocker.spy(StrictPipeline, method)
+        mocker.spy(Pipeline, method)
+
     return mocked
-    # import rohm.models
-
-    # mocked = mocker.spy()
-    # mocker.spy(rohm.models.conn, 'get')
-    # mocker.spy(rohm.models.conn, 'set')
-    # mocker.spy(rohm.models.conn, 'delete')
-    # mocker.spy(rohm.models.conn, 'hgetall')
-
-    # import pdb; pdb.set_trace()
-
-    # return rohm.models.conn
