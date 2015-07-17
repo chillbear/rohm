@@ -6,7 +6,7 @@ from rohm.models import Model
 from rohm import fields
 from rohm.exceptions import DoesNotExist
 from rohm.utils import utcnow
-from redis.client import StrictPipeline
+# from redis.client import StrictPipeline
 
 
 def test_simple_model():
@@ -98,7 +98,7 @@ class TestNoneField(object):
         assert conn.mock_calls == [call.hdel(redis_key, 'name')]
         assert conn.hgetall(redis_key) == {'id': '1'}
 
-    def test_none_field_mixed(self, conn):
+    def test_none_field_mixed(self, conn, pipeline):
         """
         Try saving a real value and a None value at same time
         """
@@ -118,8 +118,8 @@ class TestNoneField(object):
 
         assert conn.mock_calls[-1] == call.pipeline()
 
-        assert StrictPipeline.hmset.call_args[0][1:] == ('foo:1', {'a': 'alpha'})
-        assert StrictPipeline.hdel.call_args[0][1:] == ('foo:1', 'b')
+        assert pipeline.hmset.call_args[0][1:] == ('foo:1', {'a': 'alpha'})
+        assert pipeline.hdel.call_args[0][1:] == ('foo:1', 'b')
 
         # Check what's in redis
         data = conn.hgetall('foo:1')

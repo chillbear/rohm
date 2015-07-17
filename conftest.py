@@ -32,8 +32,15 @@ pipeline_methods = [
 @pytest.fixture
 def conn(commonsetup, mocker):
     from rohm.models import conn
-    from redis.client import BasePipeline, StrictRedis
+
     mocked = mocker.patch('rohm.models.conn', wraps=conn)
+
+    return mocked
+
+
+@pytest.fixture
+def pipeline(commonsetup, mocker):
+    from redis.client import BasePipeline, StrictRedis, StrictPipeline
 
     for method in redis_methods:
         mocker.spy(StrictRedis, method)
@@ -41,4 +48,4 @@ def conn(commonsetup, mocker):
     for method in pipeline_methods:
         mocker.spy(BasePipeline, method)
 
-    return mocked
+    return StrictPipeline
