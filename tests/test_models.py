@@ -8,11 +8,16 @@ from rohm.exceptions import DoesNotExist
 # from redis.client import StrictPipeline
 
 
-def test_simple_model(pipe):
-
+@pytest.fixture
+def Foo():
     class Foo(Model):
         name = fields.CharField()
         num = fields.IntegerField()
+    return Foo
+
+
+def test_simple_model(pipe, Foo):
+
     id = 1
     name = 'foo'
     num = 123
@@ -207,3 +212,28 @@ def test_partial_fields(conn, pipe):
     # access again
     print foo.num
     assert pipe.hget.call_count == 1
+
+
+def test_get_multi(Foo, conn, pipe):
+
+    foo1 = Foo(id=1, name='foo', num=10)
+    foo1.save()
+    foo2 = Foo(id=2, name='bar', num=20)
+    foo2.save()
+
+    foos = Foo.get([1, 2])
+
+    assert pipe.hgetall.call_args_list == [
+        call('foo:1'),
+        call('foo:2'),
+    ]
+
+    assert foos[0].id == 1
+    assert foos[0].name == 'foo'
+    assert foos[1].id == 2
+
+    # Test partial fields access
+    pipe.reset_mocks()
+    foos = Foo.get([1, 2], fields=['name'])
+
+    assert pipe.hmget.call_count == 2
