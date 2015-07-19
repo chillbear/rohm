@@ -251,19 +251,20 @@ class Model(six.with_metaclass(ModelMetaclass)):
             cleaned_data, none_keys = self.get_cleaned_data()
 
         if cleaned_data or none_keys:
-            use_pipe = cleaned_data and none_keys or self.ttl
+            # use_pipe = cleaned_data and none_keys or self.ttl
 
-            with redis_operation(conn, pipelined=use_pipe) as _conn:
+            with redis_operation(conn, pipelined=True) as _conn:
                 if cleaned_data:
                     _conn.hmset(redis_key, cleaned_data)
 
                 if none_keys:
                     _conn.hdel(redis_key, *none_keys)
 
-                self.post_redis_save(modified_data=modified_data)
-
                 if self.ttl:
                     _conn.expire(redis_key, self.ttl)
+
+                # user specific saving
+                self.on_save(conn, modified_data=modified_data)
 
             if self.track_modified_fields:
                 self._reset_orig_data()
@@ -272,16 +273,17 @@ class Model(six.with_metaclass(ModelMetaclass)):
         # now it's been saved
         self._new = False
 
-    def post_redis_save(self, modified_data=None):
+    def on_save(self, conn, modified_data=None):
         pass
 
     def delete(self):
         redis_key = self.get_redis_key()
-        conn.delete(redis_key)
 
-        self.post_delete()
+        with redis_operation(conn, pipelined=True) as _conn:
+            _conn.delete(redis_key)
+            self.post_delete(conn=_conn)
 
-    def post_delete(self):
+    def on_delete(self, conn):
         pass
 
     @classmethod
