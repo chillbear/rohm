@@ -251,9 +251,9 @@ class Model(six.with_metaclass(ModelMetaclass)):
             cleaned_data, none_keys = self.get_cleaned_data()
 
         if cleaned_data or none_keys:
-            # use_pipe = cleaned_data and none_keys or self.ttl
+            use_pipe = cleaned_data and none_keys or self.ttl
 
-            with redis_operation(conn, pipelined=True) as _conn:
+            with redis_operation(conn, pipelined=use_pipe) as _conn:
                 if cleaned_data:
                     _conn.hmset(redis_key, cleaned_data)
 
