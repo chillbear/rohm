@@ -243,6 +243,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
         if self._new and not force and conn.exists(redis_key):
             raise Exception('Object already exists')
 
+        modified_data = None
         if modified_only and not self._new:
             modified_data = self._get_modified_fields()
             cleaned_data, none_keys = self.get_cleaned_data(data=modified_data)
@@ -259,6 +260,8 @@ class Model(six.with_metaclass(ModelMetaclass)):
                 if none_keys:
                     _conn.hdel(redis_key, *none_keys)
 
+                self.post_redis_save(modified_data=modified_data)
+
                 if self.ttl:
                     _conn.expire(redis_key, self.ttl)
 
@@ -269,9 +272,17 @@ class Model(six.with_metaclass(ModelMetaclass)):
         # now it's been saved
         self._new = False
 
+    def post_redis_save(self, modified_data=None):
+        pass
+
     def delete(self):
         redis_key = self.get_redis_key()
         conn.delete(redis_key)
+
+        self.post_delete()
+
+    def post_delete(self):
+        pass
 
     @classmethod
     def _get_field(cls, name):
@@ -324,6 +335,10 @@ class Model(six.with_metaclass(ModelMetaclass)):
 
         return self.generate_redis_key(id)
 
+    @property
+    def redis_key(self):
+        return self.get_redis_key()
+
     @classmethod
     def generate_redis_key(cls, id):
         key = '{}:{}'.format(cls._key_prefix, id)
@@ -351,9 +366,9 @@ class Model(six.with_metaclass(ModelMetaclass)):
 
         return fields
 
-    @property
-    def _modified_field_names(self):
-        return set(self._get_modified_fields().keys())
+    # @property
+    def _get_modified_field_names(self):
+        return self._get_modified_fields().keys()
 
     def __repr__(self):
         return '<{}:{}>'.format(self.__class__.__name__, str(self))
