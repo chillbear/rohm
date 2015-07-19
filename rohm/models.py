@@ -104,7 +104,11 @@ class Model(six.with_metaclass(ModelMetaclass)):
         return getattr(self, self._pk_field)
 
     @classmethod
-    def get(cls, pks=None, id=None, fields=None, raise_missing_exception=None):
+    def create_from_id(cls, id):
+        raise NotImplementedError
+
+    @classmethod
+    def get(cls, pks=None, id=None, fields=None, allow_create=False, raise_missing_exception=None):
         # get from redis
         pks = pks or id
 
@@ -133,9 +137,12 @@ class Model(six.with_metaclass(ModelMetaclass)):
         results = pipe.execute()
 
         instances = []
-        for result in results:
+        for id, result in zip(pks, results):
             if not result:
-                if raise_missing_exception:
+                if allow_create:
+                    instance = cls.create_from_id(id)
+                    instances.append(instance)
+                elif raise_missing_exception:
                     raise DoesNotExist
                 else:
                     continue
