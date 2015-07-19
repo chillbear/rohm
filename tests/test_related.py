@@ -26,6 +26,7 @@ def test_related(conn, pipe):
     foo.save()
 
     foo = Foo.get(1)
+
     assert pipe.hgetall.call_count == 1
     assert pipe.hgetall.call_args == call(key)
 

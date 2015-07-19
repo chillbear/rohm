@@ -4,7 +4,12 @@ from redis import StrictRedis
 connection = None
 
 
-def setup_connection(redis_client):
+def set_connection_settings(host, port, password):
+    global connection
+    connection = StrictRedis(host=host, port=port, password=password)
+
+
+def set_client(redis_client):
     global connection
     connection = redis_client
 

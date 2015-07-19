@@ -67,6 +67,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
     track_modified_fields = True
     save_modified_only = True
     ttl = None
+    # allow_create_on_get = True
 
     def __init__(self, _new=True, _partial=False, **kwargs):
         """
@@ -116,6 +117,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
 
         if raise_missing_exception is None:
             raise_missing_exception = single
+        # allow_create = allow_create or cls.allow_create_on_get
 
         if single:
             ids = [ids]
@@ -142,6 +144,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
                 if allow_create:
                     instance = cls.create_from_id(id)
                     instances.append(instance)
+                    continue
                 elif raise_missing_exception:
                     raise DoesNotExist
                 else:
@@ -273,6 +276,13 @@ class Model(six.with_metaclass(ModelMetaclass)):
     @classmethod
     def _get_field(cls, name):
         return cls._fields[name]
+
+    @classmethod
+    def _get_real_fields(cls):
+        return {
+            name: field for name, field in
+            cls._fields.items() if not isinstance(field, RelatedModelField)
+        }
 
     @classmethod
     def _get_field_names(cls):
