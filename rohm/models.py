@@ -15,22 +15,22 @@ class ModelMetaclass(type):
     def __new__(meta, name, bases, attrs):
 
         # Figure out name of primary key field
-        pk_field = None
+        id_field_name = None
         for key, val in attrs.items():
             if isinstance(val, BaseField) and val.is_primary_key:
-                pk_field = key
+                id_field_name = key
                 # break
             if isinstance(val, RelatedModelField):
                 # add a id field
-                id_field = '{}_id'.format(key)
-                attrs[id_field] = RelatedModelIdField(key)
+                related_id_field_name = '{}_id'.format(key)
+                attrs[related_id_field_name] = RelatedModelIdField(key)
 
-        if pk_field is None:
+        if id_field_name is None:
             id_field = IntegerField(primary_key=True)
-            pk_field = 'id'
-            attrs[pk_field] = id_field
+            id_field_name = 'id'
+            attrs[id_field_name] = id_field
 
-        attrs['_pk_field'] = pk_field
+        attrs['_id_field_name'] = id_field_name
         return super(ModelMetaclass, meta).__new__(meta, name, bases, attrs)
 
     def __init__(cls, name, bases, attrs):
@@ -53,7 +53,7 @@ class ModelMetaclass(type):
 class Model(six.with_metaclass(ModelMetaclass)):
     """
     Things on the class (use underscores)
-    _pk_field
+    _id_field_name
 
     _fields: dictionary of Field instances of the class
 
@@ -100,35 +100,35 @@ class Model(six.with_metaclass(ModelMetaclass)):
             self._reset_orig_data()
 
     @property
-    def pk(self):
-        return getattr(self, self._pk_field)
+    def _id(self):
+        return getattr(self, self._id_field_name)
 
     @classmethod
     def create_from_id(cls, id):
         raise NotImplementedError
 
     @classmethod
-    def get(cls, pks=None, id=None, fields=None, allow_create=False, raise_missing_exception=None):
+    def get(cls, ids=None, id=None, fields=None, allow_create=False, raise_missing_exception=None):
         # get from redis
-        pks = pks or id
+        ids = ids or id
 
-        single = not isinstance(pks, (list, tuple))
+        single = not isinstance(ids, (list, tuple))
 
         if raise_missing_exception is None:
             raise_missing_exception = single
 
         if single:
-            pks = [pks]
+            ids = [ids]
 
         if fields:
-            if cls._pk_field not in fields:
-                fields.append(cls._pk_field)
+            if cls._id_field_name not in fields:
+                fields.append(cls._id_field_name)
 
         partial = bool(fields)
 
         pipe = conn.pipeline()
-        for pk in pks:
-            redis_key = cls.generate_redis_key(pk)
+        for id in ids:
+            redis_key = cls.generate_redis_key(id)
             if partial:
                 pipe.hmget(redis_key, fields)
             else:
@@ -137,7 +137,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
         results = pipe.execute()
 
         instances = []
-        for id, result in zip(pks, results):
+        for id, result in zip(ids, results):
             if not result:
                 if allow_create:
                     instance = cls.create_from_id(id)
@@ -164,17 +164,9 @@ class Model(six.with_metaclass(ModelMetaclass)):
         else:
             return instances
 
-    #
-    # @classmethod
-    # def get_multiple(cls, pks=None):
-    #     pipe = conn.pipeline()
-    #     for pk in pks:
-    #
-
     @classmethod
-    def set(cls, pk=None, id=None, **data):
-        pk = pk or id
-        redis_key = cls.generate_redis_key(pk)
+    def set(cls, id=None, **data):
+        redis_key = cls.generate_redis_key(id)
 
         if conn.exists(redis_key):
             raise DoesNotExist
@@ -212,17 +204,17 @@ class Model(six.with_metaclass(ModelMetaclass)):
         id = getattr(self, id_field_name)
         # NOW GET RELATED MODEL
         model_cls = related_field.model_cls
-        instance = self._get_related_model_by_pk(model_cls, id)
+        instance = self._get_related_model_by_id(model_cls, id)
 
         self._loaded_related_field_data[field_name] = instance
 
         return instance
 
-    def _get_related_model_by_pk(self, model_cls, pk):
+    def _get_related_model_by_id(self, model_cls, id):
         """
         Can override this to customize related model fetching (e.g. LiteModel)
         """
-        return model_cls.get(pk)
+        return model_cls.get(id)
 
     def _get_related_id_field_name(self, field_name):
         return '{}_id'.format(field_name)
@@ -316,26 +308,15 @@ class Model(six.with_metaclass(ModelMetaclass)):
             return cleaned_data
 
     def get_redis_key(self):
-        pk = getattr(self, self._pk_field)
-        if not pk:
+        id = getattr(self, self._id_field_name)
+        if not id:
             raise Exception('No primary key set!')
 
-        return self.generate_redis_key(pk)
-
-    # def _process_none_values(self, data):
-    #     non_empty_data = {}
-    #     none_values = []
-    #     for key, val in data.items():
-    #         if val is None:
-    #             none_values.append(key)
-    #         else:
-    #             non_empty_data[key] = val
-    #
-    #     return non_empty_data, none_values
+        return self.generate_redis_key(id)
 
     @classmethod
-    def generate_redis_key(cls, pk):
-        key = '{}:{}'.format(cls._key_prefix, pk)
+    def generate_redis_key(cls, id):
+        key = '{}:{}'.format(cls._key_prefix, id)
         return key
 
     def _reset_orig_data(self):
@@ -368,4 +349,4 @@ class Model(six.with_metaclass(ModelMetaclass)):
         return '<{}:{}>'.format(self.__class__.__name__, str(self))
 
     def __str__(self):
-        return str(self.pk)
+        return str(self.id)

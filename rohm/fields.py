@@ -170,7 +170,7 @@ class RelatedModelField(BaseField):
         # set the ID field
         id_field_name = instance._get_related_id_field_name(self.field_name)
 
-        id_value = None if value is None else value.pk
+        id_value = None if value is None else value.id
 
         setattr(instance, id_field_name, id_value)
 
