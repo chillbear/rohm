@@ -148,6 +148,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
                 elif raise_missing_exception:
                     raise DoesNotExist
                 else:
+                    instances.append(None)
                     continue
 
             if partial:
