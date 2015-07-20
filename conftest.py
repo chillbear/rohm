@@ -2,6 +2,16 @@ import pytest
 from rohm.connection import get_connection
 from rohm import model_registry
 import mock
+import logging
+
+
+@pytest.fixture(scope='session', autouse=True)
+def initialsetup():
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="[%(asctime)s] [%(levelname)s] [%(name)s:%(lineno)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
 
 
 @pytest.yield_fixture(autouse=True)

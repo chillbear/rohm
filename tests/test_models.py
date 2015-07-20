@@ -54,6 +54,18 @@ def test_simple_model(pipe, Foo):
         foo.save()
 
 
+def test_model_data(Foo):
+    foo = Foo(id=1, name=None, num=10)
+
+    assert foo._data == {
+        'id': 1,
+        'name': None,
+        'num': 10
+    }
+
+    foo.save()
+
+
 def test_non_id_primary_key(pipe):
     class Foo(Model):
         name = fields.CharField(primary_key=True)

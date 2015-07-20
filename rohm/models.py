@@ -1,6 +1,7 @@
 import copy
 
 import six
+import logging
 
 from rohm import model_registry
 from rohm.fields import BaseField, IntegerField, RelatedModelField, RelatedModelIdField
@@ -9,6 +10,9 @@ from rohm.exceptions import DoesNotExist
 from rohm.utils import redis_operation
 
 conn = get_connection()
+
+
+logger = logging.getLogger(__name__)
 
 
 class ModelMetaclass(type):
@@ -245,12 +249,16 @@ class Model(six.with_metaclass(ModelMetaclass)):
             raise Exception('Object already exists')
 
         modified_data = None
+        # print 'full data is', self._data
+        # print 'saving modified', modified_data
+        logger.debug('Saving modified: %s', modified_data)
         if modified_only and not self._new:
             modified_data = self._get_modified_fields()
             cleaned_data, none_keys = self.get_cleaned_data(data=modified_data)
         else:
             cleaned_data, none_keys = self.get_cleaned_data()
 
+        # print 'saving', cleaned_data, none_keys
         if cleaned_data or none_keys:
             use_pipe = cleaned_data and none_keys or self.ttl
 
