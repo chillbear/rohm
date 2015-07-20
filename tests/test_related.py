@@ -22,13 +22,6 @@ def Bar():
 
 def test_related(Foo, Bar, conn, pipe):
 
-    # class Foo(Model):
-    #     name = fields.CharField()
-    #     bar = fields.RelatedModelField('Bar')
-    #
-    # class Bar(Model):
-    #     title = fields.CharField()
-
     key = 'foo:1'
 
     bar1 = Bar(id=1, title='bar1')
@@ -55,7 +48,6 @@ def test_related(Foo, Bar, conn, pipe):
     # Reading bar_id should not access Redis
     assert foo.bar_id == 1
     assert conn.mock_calls == []
-    # import ipdb; ipdb.set_trace()
 
     # Should only read related field here
     pipe.reset_mocks()
@@ -68,7 +60,7 @@ def test_related(Foo, Bar, conn, pipe):
     # _data should not contain related Bar
     assert set(foo._data.keys()) == {'id', 'name', 'bar_id'}
     assert foo._loaded_related_field_data == {'bar': bar}
-    # assert foo._loaded_field_names == {'id', 'name', 'bar_id'}
+    assert foo._loaded_field_names == {'id', 'name', 'bar_id'}
 
     # Reassign bar
     conn.reset_mock()

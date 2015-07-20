@@ -7,16 +7,6 @@ connection = None
 def set_connection_settings(**kwargs):
     global connection
 
-    # settings = {}
-    # if host:
-    #     settings['host'] = host
-    # if port:
-    #     settings['port'] = port
-    # if password:
-    #     settings['password']
-
-
-    # connection = StrictRedis(host=host, port=port, password=password, db=db)
     connection = StrictRedis(**kwargs)
 
 

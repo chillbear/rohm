@@ -247,14 +247,6 @@ class Model(six.with_metaclass(ModelMetaclass)):
         # create in Redis if it doesn't exist
         pass
 
-    # def _get_data_with_fields(self, data=None):
-    #     data_with_fields = []
-    #     data = data or self._data
-    #     for key, val in data.items():
-    #         field = self._get_field(key)
-    #         data_with_fields.append((key, val, field))
-    #     return data_with_fields
-
     def save(self, force=False, modified_only=False):
         # self.validate()
         modified_only = modified_only or self.save_modified_only
@@ -265,8 +257,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
             raise Exception('Object already exists')
 
         modified_data = None
-        # print 'full data is', self._data
-        # print 'saving modified', modified_data
+
         # logger.debug('Saving modified: %s', modified_data)
         if modified_only and not self._new:
             modified_data = self._get_modified_fields()
@@ -314,13 +305,6 @@ class Model(six.with_metaclass(ModelMetaclass)):
     @classmethod
     def _get_field(cls, name):
         return cls._fields[name]
-
-    # @classmethod
-    # def _get_real_fields(cls):
-    #     return {
-    #         name: field for name, field in
-    #         cls._fields.items() if not isinstance(field, RelatedModelField)
-    #     }
 
     @classmethod
     def _get_field_names(cls):
@@ -398,7 +382,6 @@ class Model(six.with_metaclass(ModelMetaclass)):
 
         return fields
 
-    # @property
     def _get_modified_field_names(self):
         return self._get_modified_fields().keys()
 

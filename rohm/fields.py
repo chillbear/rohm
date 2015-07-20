@@ -5,7 +5,6 @@ import json
 
 import six
 
-# from rohm.exceptions import FieldValidationError
 from rohm import model_registry
 from rohm.utils import safe_unicode, safe_string
 import pytz
@@ -36,11 +35,6 @@ class BaseField(object):
     def __set__(self, instance, value):
         field_name = self.field_name
         instance._data[field_name] = value
-
-        # print 'LOADED FIELD', field_name
-        # if field_name == 'bar':
-        #     import traceback
-        #     traceback.print_stack()
 
         instance._loaded_field_names.add(field_name)
 
@@ -166,9 +160,6 @@ class RelatedModelField(BaseField):
             self._model_cls = model_registry[self._model_cls]
 
         return self._model_cls
-
-    # def _get_id_field(self, instance):
-    #     return instance._get_field('{}_id'.format(self.field_name))
 
     def __get__(self, instance, owner):
         field_name = self.field_name
