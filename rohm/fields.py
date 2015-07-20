@@ -36,6 +36,12 @@ class BaseField(object):
     def __set__(self, instance, value):
         field_name = self.field_name
         instance._data[field_name] = value
+
+        # print 'LOADED FIELD', field_name
+        # if field_name == 'bar':
+        #     import traceback
+        #     traceback.print_stack()
+
         instance._loaded_field_names.add(field_name)
 
     def get_default_value(self):

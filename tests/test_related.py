@@ -1,18 +1,33 @@
-
+import pytest
 from mock import call
 
 from rohm.models import Model
 from rohm import fields
 
 
-def test_related(conn, pipe):
-
+@pytest.fixture
+def Foo():
     class Foo(Model):
         name = fields.CharField()
         bar = fields.RelatedModelField('Bar')
+    return Foo
 
+
+@pytest.fixture
+def Bar():
     class Bar(Model):
         title = fields.CharField()
+    return Bar
+
+
+def test_related(Foo, Bar, conn, pipe):
+
+    # class Foo(Model):
+    #     name = fields.CharField()
+    #     bar = fields.RelatedModelField('Bar')
+    #
+    # class Bar(Model):
+    #     title = fields.CharField()
 
     key = 'foo:1'
 
@@ -32,9 +47,15 @@ def test_related(conn, pipe):
 
     conn.reset_mock()
 
+    # Check internal stuff
+    assert set(foo._data.keys()) == {'id', 'name', 'bar_id'}
+    assert foo._loaded_related_field_data == {}
+    assert foo._loaded_field_names == {'id', 'name', 'bar_id'}
+
     # Reading bar_id should not access Redis
     assert foo.bar_id == 1
     assert conn.mock_calls == []
+    # import ipdb; ipdb.set_trace()
 
     # Should only read related field here
     pipe.reset_mocks()
@@ -43,6 +64,11 @@ def test_related(conn, pipe):
     assert bar.title == 'bar1'
     # assert conn.hgetall.call_args_list == [call('bar:1')]
     assert pipe.hgetall.call_args_list == [call('bar:1')]
+
+    # _data should not contain related Bar
+    assert set(foo._data.keys()) == {'id', 'name', 'bar_id'}
+    assert foo._loaded_related_field_data == {'bar': bar}
+    # assert foo._loaded_field_names == {'id', 'name', 'bar_id'}
 
     # Reassign bar
     conn.reset_mock()

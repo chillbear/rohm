@@ -87,16 +87,18 @@ class Model(six.with_metaclass(ModelMetaclass)):
         self._data = {}
         self._new = _new
         self._orig_data = {}
-        self._loaded_field_names = set()
-        self._loaded_related_field_data = {}
+        self._loaded_field_names = set()       # only for "real" fields
+        self._loaded_related_field_data = {}   # for Related stuff
 
         for key, val in kwargs.items():
+            # Populate self._data and self._loaded_related_field_data
+            # This can be both real fields and LiteModels (RelateModelField)
             if key in self._fields:
                 setattr(self, key, val)
 
         if not _new and not _partial:
             # indicate that all fields are "loaded"
-            self._loaded_field_names = set(self._get_field_names())
+            self._loaded_field_names = set(self._get_real_field_names())
 
         # if self.get_redis_key() == 'foo:1':
         #     import ipdb; ipdb.set_trace()
@@ -265,7 +267,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
         modified_data = None
         # print 'full data is', self._data
         # print 'saving modified', modified_data
-        logger.debug('Saving modified: %s', modified_data)
+        # logger.debug('Saving modified: %s', modified_data)
         if modified_only and not self._new:
             modified_data = self._get_modified_fields()
             cleaned_data, none_keys = self.get_cleaned_data(data=modified_data)
@@ -322,7 +324,12 @@ class Model(six.with_metaclass(ModelMetaclass)):
 
     @classmethod
     def _get_field_names(cls):
+
         return list(cls._fields.keys())
+
+    @classmethod
+    def _get_real_field_names(cls):
+        return list(cls._real_fields.keys())
 
     def get_cleaned_data(self, data=None, separate_none=True):
         """
