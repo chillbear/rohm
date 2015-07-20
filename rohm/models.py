@@ -44,13 +44,16 @@ class ModelMetaclass(type):
         cls._key_prefix = name.lower()
 
         cls._fields = {}
-        cls._real_fields = {}
+        cls._real_fields = {}   # track "real" fields (not RelatedModelField)
         for key, val in attrs.items():
             if isinstance(val, BaseField):
                 # let field know its name!
                 field = val
                 val.field_name = key
                 cls._fields[key] = field
+
+                if not isinstance(val, RelatedModelField):
+                    cls._real_fields[key] = val
 
         model_registry[name] = cls
 
@@ -95,8 +98,11 @@ class Model(six.with_metaclass(ModelMetaclass)):
             # indicate that all fields are "loaded"
             self._loaded_field_names = set(self._get_field_names())
 
-        # check default vals
-        for field_name, field in self._get_real_fields().items():
+        # if self.get_redis_key() == 'foo:1':
+        #     import ipdb; ipdb.set_trace()
+
+        # check default vals (avoid for RelatedModelField though)
+        for field_name, field in self._real_fields.items():
 
             if field_name not in self._data:
                 # Handle missing values
@@ -307,12 +313,12 @@ class Model(six.with_metaclass(ModelMetaclass)):
     def _get_field(cls, name):
         return cls._fields[name]
 
-    @classmethod
-    def _get_real_fields(cls):
-        return {
-            name: field for name, field in
-            cls._fields.items() if not isinstance(field, RelatedModelField)
-        }
+    # @classmethod
+    # def _get_real_fields(cls):
+    #     return {
+    #         name: field for name, field in
+    #         cls._fields.items() if not isinstance(field, RelatedModelField)
+    #     }
 
     @classmethod
     def _get_field_names(cls):
