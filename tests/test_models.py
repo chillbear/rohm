@@ -56,9 +56,11 @@ def test_simple_model(pipe, Foo):
 
 def test_model_data(Foo):
     """
-    Test internals of a model (namely _data)
+    Test internals of a model (namely _data), and handling None
     """
     foo = Foo(id=1, name=None, num=10)
+
+    assert set(Foo._fields.keys()) == {'id', 'name', 'num'}
 
     data1 = {
         'id': 1,
@@ -74,6 +76,13 @@ def test_model_data(Foo):
     foo = Foo.get(1)
     assert foo._data == data1
     assert foo._loaded_field_names == loaded_field_names
+
+    foo.name = 'foo'
+    foo.save()
+    assert foo._data['name'] == 'foo'
+
+    foo = Foo.get(1)
+    assert foo._data['name'] == 'foo'
 
 
 def test_non_id_primary_key(pipe):
