@@ -282,7 +282,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
 
         with redis_operation(conn, pipelined=True) as _conn:
             _conn.delete(redis_key)
-            self.post_delete(conn=_conn)
+            self.on_delete(conn=_conn)
 
     def on_delete(self, conn):
         pass

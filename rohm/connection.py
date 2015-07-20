@@ -4,9 +4,20 @@ from redis import StrictRedis
 connection = None
 
 
-def set_connection_settings(host=None, port=None, password=None, db=None):
+def set_connection_settings(**kwargs):
     global connection
-    connection = StrictRedis(host=host, port=port, password=password, db=db)
+
+    # settings = {}
+    # if host:
+    #     settings['host'] = host
+    # if port:
+    #     settings['port'] = port
+    # if password:
+    #     settings['password']
+
+
+    # connection = StrictRedis(host=host, port=port, password=password, db=db)
+    connection = StrictRedis(**kwargs)
 
 
 def set_client(redis_client):

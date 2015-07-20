@@ -7,6 +7,7 @@ import six
 
 # from rohm.exceptions import FieldValidationError
 from rohm import model_registry
+from rohm.utils import safe_unicode, safe_string
 import pytz
 from pytz import utc
 
@@ -73,10 +74,10 @@ class BaseField(object):
         pass
 
     def _to_redis(self, val):
-        return str(val)
+        raise NotImplementedError
 
     def _from_redis(self, val):
-        return val
+        raise NotImplementedError
 
 
 class IntegerField(BaseField):
@@ -90,7 +91,14 @@ class IntegerField(BaseField):
 
 
 class CharField(BaseField):
+    # Unicode
     allowed_types = six.string_types
+
+    def _to_redis(self, val):
+        return safe_string(val)
+
+    def _from_redis(self, val):
+        return safe_unicode(val)
 
 
 class BooleanField(BaseField):
