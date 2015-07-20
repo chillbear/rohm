@@ -376,4 +376,4 @@ class Model(six.with_metaclass(ModelMetaclass)):
         return '<{}:{}>'.format(self.__class__.__name__, str(self))
 
     def __str__(self):
-        return str(self.id)
+        return str(self._id)

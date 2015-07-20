@@ -54,6 +54,21 @@ def test_simple_model(pipe, Foo):
         foo.save()
 
 
+def test_non_id_primary_key(pipe):
+    class Foo(Model):
+        name = fields.CharField(primary_key=True)
+        body = fields.CharField()
+
+    foo = Foo(name='baz', body='stuff')
+    foo.save()
+
+    pipe.hmset.assert_called_with('foo:baz', dict(name='baz', body='stuff'))
+
+    foo = Foo.get('baz')
+    assert foo.name == 'baz'
+    assert foo.body == 'stuff'
+
+
 class TestNoneField(object):
 
     def test_none_field_basics(self, conn):

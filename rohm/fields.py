@@ -107,9 +107,10 @@ class JSONField(BaseField):
     allowed_types = (dict, list, tuple)
 
     # preprocess?
+    encoder = json.JSONEncoder
 
     def _to_redis(self, val):
-        return json.dumps(val)
+        return json.dumps(val, cls=self.encoder)
 
     def _from_redis(self, val):
         return json.loads(val)
