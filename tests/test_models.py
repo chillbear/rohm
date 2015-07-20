@@ -55,15 +55,25 @@ def test_simple_model(pipe, Foo):
 
 
 def test_model_data(Foo):
+    """
+    Test internals of a model (namely _data)
+    """
     foo = Foo(id=1, name=None, num=10)
 
-    assert foo._data == {
+    data1 = {
         'id': 1,
         'name': None,
         'num': 10
     }
+    loaded_field_names = {'id', 'name', 'num'}
 
+    assert foo._data == data1
+    assert foo._loaded_field_names == loaded_field_names
     foo.save()
+
+    foo = Foo.get(1)
+    assert foo._data == data1
+    assert foo._loaded_field_names == loaded_field_names
 
 
 def test_non_id_primary_key(pipe):

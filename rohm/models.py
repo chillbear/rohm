@@ -44,6 +44,7 @@ class ModelMetaclass(type):
         cls._key_prefix = name.lower()
 
         cls._fields = {}
+        cls._real_fields = {}
         for key, val in attrs.items():
             if isinstance(val, BaseField):
                 # let field know its name!
@@ -95,11 +96,18 @@ class Model(six.with_metaclass(ModelMetaclass)):
             self._loaded_field_names = set(self._get_field_names())
 
         # check default vals
-        for field_name, field in self._fields.items():
-            if field_name not in self._data and field.default:
-                # set default value
-                default_val = field.get_default_value()
-                setattr(self, field_name, default_val)
+        for field_name, field in self._get_real_fields().items():
+
+            if field_name not in self._data:
+                # Handle missing values
+                if field.default:
+                    # set default value
+                    default_val = field.get_default_value()
+                    setattr(self, field_name, default_val)
+                elif not _partial and field.allow_none:
+                    # None is represented as a lack of a key in Redis, so but
+                    # better to expliclty set {'key': None} in self._data
+                    setattr(self, field_name, None)
 
         if self.track_modified_fields:
             self._reset_orig_data()
