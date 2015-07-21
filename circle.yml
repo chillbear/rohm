@@ -1,0 +1,23 @@
+machine:
+  timezone:
+    America/Los_Angeles
+
+  python:
+    version:
+      2.7.9
+
+
+dependencies:
+  override:
+    - pip install -r requirements.txt --download-cache ~/.pip-cache
+
+  cache_directories:
+    - "~/.pip_cache"
+
+
+test:
+  override:
+    - pep8 --statistics --benchmark
+    - flake8
+    - py.test
+        parallel: true
