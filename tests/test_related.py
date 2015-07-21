@@ -79,3 +79,40 @@ def test_related(Foo, Bar, conn, pipe):
     foo.bar = None
     foo.save()
     assert conn.mock_calls == [call.hdel(key, 'bar_id')]
+
+
+def test_related_partial(Foo, Bar, conn, pipe):
+    """
+    Test partial field loading and related..
+    """
+    key = 'foo:1'
+
+    bar1 = Bar(id=2, title='bar1')
+    bar1.save()
+
+    foo = Foo(id=1, name='foo', bar=bar1)
+    foo.save()
+
+    foo = Foo.get(id=1, fields=['name'])
+    assert foo._data == dict(id=1, name='foo')
+    # # pipe.hmget.assert_called_with(key, ['id', 'name'])
+    # assert set(pipe.hmget.call_args[1]) == {'id', 'name'}
+
+    # Access bar
+    assert foo.bar.title == bar1.title
+
+    # internal stuff
+    assert conn.hget.call_args_list == [call(key, 'bar_id')]
+    assert foo._data == dict(id=1, name='foo', bar_id=2)
+    assert foo._loaded_field_names == {'id', 'name', 'bar_id'}
+
+    # Try loading bar_id separately...?
+    conn.reset_mock()
+
+    foo = Foo.get(id=1, fields=['name'])
+    print foo.bar_id
+    assert conn.hget.call_count == 1
+    assert foo._data == dict(id=1, name='foo', bar_id=2)
+
+    print foo.bar
+    assert conn.hget.call_count == 1

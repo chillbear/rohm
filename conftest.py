@@ -83,6 +83,7 @@ class MethodSpy(object):
     def _convert_call(self, call):
         args = call[0][1:]   # erase first arg
         kwargs = call[1]
+        print 'call', args, kwargs
         return mock.call(*args, **kwargs)
 
     @property
