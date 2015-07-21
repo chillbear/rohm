@@ -133,6 +133,8 @@ class Model(six.with_metaclass(ModelMetaclass)):
         # get from redis
         ids = ids or id
 
+        assert ids
+
         single = not isinstance(ids, (list, tuple))
 
         if raise_missing_exception is None:
@@ -162,6 +164,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
         for id, result in zip(ids, results):
             if not result:
                 if allow_create:
+
                     instance = cls.create_from_id(id)
                     instances.append(instance)
                     continue
@@ -229,12 +232,16 @@ class Model(six.with_metaclass(ModelMetaclass)):
         related_field = self._get_field(field_name)
         id_field_name = self._get_related_id_field_name(field_name)
         id = getattr(self, id_field_name)
+
         # NOW GET RELATED MODEL
-        model_cls = related_field.model_cls
-        instance = self._get_related_model_by_id(model_cls, id)
+        if id:
+            model_cls = related_field.model_cls
+            instance = self._get_related_model_by_id(model_cls, id)
+        else:
+            # Handle case of no id
+            instance = None
 
         self._loaded_related_field_data[field_name] = instance
-
         return instance
 
     def _get_related_model_by_id(self, model_cls, id):
