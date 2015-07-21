@@ -81,6 +81,12 @@ def test_related(Foo, Bar, conn, pipe):
     assert conn.mock_calls == [call.hdel(key, 'bar_id')]
 
 
+def test_related_none(Foo, Bar):
+    foo = Foo(id=1, name='foo')
+    foo.save()
+    assert foo.bar is None
+
+
 def test_related_partial(Foo, Bar, conn, pipe):
     """
     Test partial field loading and related..

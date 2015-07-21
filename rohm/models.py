@@ -201,6 +201,9 @@ class Model(six.with_metaclass(ModelMetaclass)):
             if cls.ttl:
                 _conn.expire()
 
+    def reload(self):
+        return self.get(id=self.id)
+
     @classmethod
     def _convert_field_from_raw(cls, field_name, raw_val):
         """
@@ -238,7 +241,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
         """
         Can override this to customize related model fetching (e.g. LiteModel)
         """
-        return model_cls.get(id)
+        return model_cls.get(id, allow_create=False, raise_missing_exception=False)
 
     def _get_related_id_field_name(self, field_name):
         return '{}_id'.format(field_name)
