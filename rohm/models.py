@@ -18,23 +18,25 @@ logger = logging.getLogger(__name__)
 class ModelMetaclass(type):
     def __new__(meta, name, bases, attrs):
 
-        # Figure out name of primary key field
+        # Figure out name of main "id" field (i.e. "primary key")
         id_field_name = None
         for key, val in attrs.items():
             if isinstance(val, BaseField) and val.is_primary_key:
                 id_field_name = key
-                # break
             if isinstance(val, RelatedModelField):
-                # add a id field
+                # Generate the actual ID field for a relation, suffixed with '_id'
                 related_id_field_name = '{}_id'.format(key)
                 attrs[related_id_field_name] = RelatedModelIdField(key)
 
         if id_field_name is None:
+            # Make an id_field if not specified
             id_field = IntegerField(primary_key=True)
             id_field_name = 'id'
             attrs[id_field_name] = id_field
 
+        # Store name of our id_field
         attrs['_id_field_name'] = id_field_name
+
         return super(ModelMetaclass, meta).__new__(meta, name, bases, attrs)
 
     def __init__(cls, name, bases, attrs):
@@ -43,18 +45,19 @@ class ModelMetaclass(type):
 
         cls._key_prefix = name.lower()
 
+        # Store a dict of {field_name: Field object}
         cls._fields = {}
-        cls._real_fields = {}   # track "real" fields (not RelatedModelField)
+        cls._real_fields = {}     # track "real" fields (not RelatedModelField)
         for key, val in attrs.items():
             if isinstance(val, BaseField):
-                # let field know its name!
                 field = val
-                val.field_name = key
+                field.field_name = key                # Let field know its own name
                 cls._fields[key] = field
 
                 if not isinstance(val, RelatedModelField):
                     cls._real_fields[key] = val
 
+        # Track this Model in a global registry
         model_registry[name] = cls
 
 
@@ -71,45 +74,52 @@ class Model(six.with_metaclass(ModelMetaclass)):
     - field_name: the name of a field
     - field_val: the value of a Model instance's field
 
+    Class variables:
+    - track_modified_fields - Track what fields are modified (by storing the original)
+    - save_modified_only - On save, only save modified fields. Assumes track_modified_fields==True
+    - ttl - Time to live in seconds (uses Redis' built-in ttl)
     """
     track_modified_fields = True
     save_modified_only = True
     ttl = None
-    # allow_create_on_get = True
 
-    def __init__(self, _new=True, _partial=False, **kwargs):
+    def __init__(self, _new=True, _partial=False, **field_data):
         """
         Args:
         ------
         _new: Is this a brand new thing_, or loaded from Redis
+        _partial: Means that only a subset of fields returned
 
+        Instance variables:
+        -------------------
+        _data: Dictionary of {field_name: field_value}. Only real fields
+        _loaded_field_names: A set of fields that have been loaded from Redis. Only includes
+                             "real fields" (not RelatedModelField's)
+        _loaded_related_field_data: Stores any loaded related LiteModel's (from: RelatedModelField)
         """
         self._data = {}
         self._new = _new
-        self._orig_data = {}
-        self._loaded_field_names = set()       # only for "real" fields
+        self._orig_data = {}                   # the original data
+        self._loaded_field_names = set()       # only for "real" fields, fields that have been loaded
         self._loaded_related_field_data = {}   # for Related stuff
 
-        for key, val in kwargs.items():
+        for key, val in field_data.items():
             # Populate self._data and self._loaded_related_field_data
-            # This can be both real fields and LiteModels (RelateModelField)
+            # field_data can be both real fields and LiteModels (RelateModelField)
             if key in self._fields:
                 setattr(self, key, val)
 
         if not _new and not _partial:
-            # indicate that all fields are "loaded"
+            # If fully loaded from Redis, indicate that all fields are "loaded"
             self._loaded_field_names = set(self._get_real_field_names())
 
-        # if self.get_redis_key() == 'foo:1':
-        #     import ipdb; ipdb.set_trace()
-
-        # check default vals (avoid for RelatedModelField though)
+        # Check default vals (avoid for RelatedModelField though)
         for field_name, field in self._real_fields.items():
 
             if field_name not in self._data:
                 # Handle missing values
                 if field.default:
-                    # set default value
+                    # Set default value
                     default_val = field.get_default_value()
                     setattr(self, field_name, default_val)
                 elif not _partial and field.allow_none:
@@ -122,11 +132,8 @@ class Model(six.with_metaclass(ModelMetaclass)):
 
     @property
     def _id(self):
+        """ Return the id value (i.e. primary key) """
         return getattr(self, self._id_field_name)
-
-    @classmethod
-    def create_from_id(cls, id):
-        raise NotImplementedError
 
     @classmethod
     def get(cls, ids=None, id=None, fields=None, allow_create=False, raise_missing_exception=None):
@@ -204,8 +211,9 @@ class Model(six.with_metaclass(ModelMetaclass)):
             if cls.ttl:
                 _conn.expire()
 
-    def reload(self):
-        return self.get(id=self.id)
+    @classmethod
+    def create_from_id(cls, id):
+        raise NotImplementedError
 
     @classmethod
     def _convert_field_from_raw(cls, field_name, raw_val):
@@ -215,6 +223,10 @@ class Model(six.with_metaclass(ModelMetaclass)):
         field = cls._get_field(field_name)
         cleaned = field.from_redis(raw_val)
         return cleaned
+
+    def reload(self):
+        """ Reload from Redis """
+        return self.get(id=self.id)
 
     def _get_field_from_redis(self, field_name):
         redis_key = self.get_redis_key()
