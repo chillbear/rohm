@@ -20,4 +20,3 @@ test:
     - pep8 --statistics --benchmark
     - flake8
     - py.test
-        parallel: true
