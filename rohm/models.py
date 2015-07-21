@@ -241,7 +241,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
         """
         Can override this to customize related model fetching (e.g. LiteModel)
         """
-        return model_cls.get(id, allow_create=False, raise_missing_exception=False)
+        return model_cls.get(id, allow_create=True, raise_missing_exception=False)
 
     def _get_related_id_field_name(self, field_name):
         return '{}_id'.format(field_name)
