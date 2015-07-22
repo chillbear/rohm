@@ -6,7 +6,7 @@ import logging
 from rohm import model_registry
 from rohm.fields import BaseField, IntegerField, RelatedModelField, RelatedModelIdField
 from rohm.connection import get_connection
-from rohm.exceptions import DoesNotExist
+from rohm.exceptions import AlreadyExists, DoesNotExist
 from rohm.utils import redis_operation
 
 conn = get_connection()
@@ -286,7 +286,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
         redis_key = self.get_redis_key()
 
         if self._new and not force and conn.exists(redis_key):
-            raise Exception('Object already exists')
+            raise AlreadyExists
 
         modified_data = None
 
