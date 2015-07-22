@@ -274,7 +274,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
 
         return self.generate_redis_key(id)
 
-    def save(self, force=False, modified_only=False):
+    def save(self, check_already_exists=False, modified_only=False):
         """
         Save model to Redis. Will create new one if it doesn't exist
 
@@ -285,7 +285,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
 
         redis_key = self.get_redis_key()
 
-        if self._new and not force and conn.exists(redis_key):
+        if check_already_exists and self._new and conn.exists(redis_key):
             raise AlreadyExists
 
         modified_data = None
