@@ -38,7 +38,7 @@ def test_related(Foo, Bar, conn, pipe):
     assert pipe.hgetall.call_count == 1
     assert pipe.hgetall.call_args == call(key)
 
-    conn.reset_mock()
+    pipe.reset_mock()
 
     # Check internal stuff
     assert set(foo._data.keys()) == {'id', 'name', 'bar_id'}
@@ -47,14 +47,15 @@ def test_related(Foo, Bar, conn, pipe):
 
     # Reading bar_id should not access Redis
     assert foo.bar_id == 1
-    assert conn.mock_calls == []
+    assert pipe.hgetall.call_count == 0
+    assert pipe.hget.call_count == 0
+    assert pipe.hmget.call_count == 0
 
     # Should only read related field here
-    pipe.reset_mocks()
+    pipe.reset_mock()
 
     bar = foo.bar
     assert bar.title == 'bar1'
-    # assert conn.hgetall.call_args_list == [call('bar:1')]
     assert pipe.hgetall.call_args_list == [call('bar:1')]
 
     # _data should not contain related Bar
@@ -63,22 +64,22 @@ def test_related(Foo, Bar, conn, pipe):
     assert foo._loaded_field_names == {'id', 'name', 'bar_id'}
 
     # Reassign bar
-    conn.reset_mock()
+    pipe.reset_mock()
     foo.bar = bar2
     foo.save()
-    assert conn.mock_calls == [call.hmset(key, {'bar_id': '2'})]
+    assert pipe.hmset.call_args_list == [call(key, {'bar_id': '2'})]
 
     # Assign by setting bar_id
-    conn.reset_mock()
+    pipe.reset_mock()
     foo.bar_id = 1
     foo.save()
-    assert conn.mock_calls == [call.hmset(key, {'bar_id': '1'})]
+    assert pipe.hmset.call_args_list == [call(key, {'bar_id': '1'})]
 
     # Set to null
-    conn.reset_mock()
+    pipe.reset_mock()
     foo.bar = None
     foo.save()
-    assert conn.mock_calls == [call.hdel(key, 'bar_id')]
+    assert pipe.hdel.call_args_list == [call(key, 'bar_id')]
 
 
 def test_related_none(Foo, Bar):
@@ -116,9 +117,9 @@ def test_related_partial(Foo, Bar, conn, pipe):
     conn.reset_mock()
 
     foo = Foo.get(id=1, fields=['name'])
-    print foo.bar_id
+    str(foo.bar_id)
     assert conn.hget.call_count == 1
     assert foo._data == dict(id=1, name='foo', bar_id=2)
 
-    print foo.bar
+    str(foo.bar)
     assert conn.hget.call_count == 1

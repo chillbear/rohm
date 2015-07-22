@@ -51,4 +51,3 @@ def test_datetime_field():
 
     foo = DefaultTimeModel.get(id=1)
     assert foo.created_at
-    print foo.created_at

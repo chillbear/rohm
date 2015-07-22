@@ -66,9 +66,10 @@ class PipelineSpy(object):
         mock = getattr(self, method)
         mock.assert_called_with(*args, **kwargs)
 
-    def reset_mocks(self):
-        for mock in self.method_mocks.values():
-            mock.reset_mock()
+    def reset_mock(self):
+        # Reset all method mocks
+        for _mock in self.method_mocks.values():
+            _mock.reset_mock()
 
 
 class MethodSpy(object):
@@ -83,7 +84,6 @@ class MethodSpy(object):
     def _convert_call(self, call):
         args = call[0][1:]   # erase first arg
         kwargs = call[1]
-        print 'call', args, kwargs
         return mock.call(*args, **kwargs)
 
     @property
