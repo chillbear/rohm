@@ -1,7 +1,8 @@
 import copy
+import logging
 
 import six
-import logging
+import redis
 
 from rohm import model_registry
 from rohm.fields import BaseField, IntegerField, RelatedModelField, RelatedModelIdField
@@ -285,9 +286,6 @@ class Model(six.with_metaclass(ModelMetaclass)):
 
         redis_key = self.get_redis_key()
 
-        if self._new and not force_create and conn.exists(redis_key):
-            raise AlreadyExists
-
         modified_data = None
 
         if modified_only and not self._new:
@@ -297,21 +295,37 @@ class Model(six.with_metaclass(ModelMetaclass)):
             cleaned_data, none_keys = self.get_cleaned_data()
 
         if cleaned_data or none_keys:
-            use_pipe = cleaned_data and none_keys or self.ttl
+            with conn.pipeline() as pipe:
+                try:
+                    if self._new and not force_create:
+                        # For a new model, use WATCH to detect if someone else wrote to
+                        # this key in the meantime
+                        pipe.watch(redis_key)
 
-            with redis_operation(conn, pipelined=use_pipe) as _conn:
-                if cleaned_data:
-                    _conn.hmset(redis_key, cleaned_data)
+                        exists = pipe.exists(redis_key)
+                        if exists:
+                            pipe.reset()
+                            raise AlreadyExists
 
-                if none_keys:
-                    # Delete None values
-                    _conn.hdel(redis_key, *none_keys)
+                    # Return to buffered mode (mostly in case of the watch command)
+                    pipe.multi()
 
-                if self.ttl:
-                    _conn.expire(redis_key, self.ttl)
+                    if cleaned_data:
+                        pipe.hmset(redis_key, cleaned_data)
 
-                # Custom save hook
-                self.on_save(conn, modified_data=modified_data)
+                    if none_keys:
+                        # Delete None values
+                        pipe.hdel(redis_key, *none_keys)
+
+                    if self.ttl:
+                        pipe.expire(redis_key, self.ttl)
+
+                    # Custom save hook
+                    self.on_save(conn, modified_data=modified_data)
+
+                    pipe.execute()
+                except redis.WatchError:
+                    raise AlreadyExists
 
             if self.track_modified_fields:
                 self._reset_orig_data()

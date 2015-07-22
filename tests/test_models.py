@@ -4,8 +4,7 @@ from mock import call
 
 from rohm.models import Model
 from rohm import fields
-from rohm.exceptions import DoesNotExist
-# from redis.client import StrictPipeline
+from rohm.exceptions import DoesNotExist, AlreadyExists
 
 
 @pytest.fixture
@@ -102,7 +101,7 @@ def test_non_id_primary_key(pipe):
 
 class TestNoneField(object):
 
-    def test_none_field_basics(self, conn):
+    def test_none_field_basics(self, conn, pipe):
 
         """
         Test behavior of allow_none fields
@@ -123,13 +122,13 @@ class TestNoneField(object):
         redis_key = 'foo:1'
 
         # should be no calls get (bug with name __get__ calling from Redis)
-        assert conn.hmget.call_count == 0
+        assert pipe.hmget.call_count == 0
 
-        conn.reset_mock()
+        pipe.reset_mock()
 
         # understand that we already "loaded" that this field is None
         foo = Foo.get(id=1)
-        assert conn.mock_calls == [call.hgetall(redis_key)]
+        pipe.hgetall.assert_called_with(redis_key)
         assert foo._loaded_field_names == {'id', 'name'}
 
         assert foo.name is None   # this should not trigger Redis call
@@ -137,15 +136,15 @@ class TestNoneField(object):
         foo.name = 'asdf'
         assert foo._get_modified_fields() == {'name': 'asdf'}
         foo.save()
-        assert conn.mock_calls[-1] == call.hmset(redis_key, {'name': 'asdf'})
+        pipe.hmset.assert_called_with(redis_key, {'name': 'asdf'})
         assert conn.hgetall(redis_key) == {'id': '1', 'name': 'asdf'}
 
-        conn.reset_mock()
+        pipe.reset_mock()
 
         # Now try overriding existing value with None! Should do a delete operation
         foo.name = None
         foo.save()
-        assert conn.mock_calls == [call.hdel(redis_key, 'name')]
+        pipe.hdel.assert_called_with(redis_key, 'name')
         assert conn.hgetall(redis_key) == {'id': '1'}
 
     def test_none_field_mixed(self, conn, pipe):
@@ -178,7 +177,7 @@ class TestNoneField(object):
 
 
 @pytest.mark.parametrize('save_modified_only', (False, True))
-def test_save_modified_only(save_modified_only, conn):
+def test_save_modified_only(save_modified_only, conn, pipe):
     class Foo(Model):
         name = fields.CharField()
         num = fields.IntegerField()
@@ -189,26 +188,25 @@ def test_save_modified_only(save_modified_only, conn):
 
     foo = Foo.get(1)
 
-    conn.reset_mock()
+    pipe.reset_mock()
     foo.name = 'something'
     foo.save()
 
     if save_modified_only:
-        print conn.mock_calls
-        conn.hmset.assert_called_once_with('foo:1', {'name': 'something'})
+        pipe.hmset.assert_called_with('foo:1', {'name': 'something'})
 
         # next save should do nothing
         foo.save()
-        conn.reset_mock()
-        assert conn.mock_calls == []
+        pipe.reset_mock()
+        assert pipe.hmset.call_count == 0
     else:
         data = {'id': '1', 'name': 'something', 'num': '12'}
-        conn.hmset.assert_called_once_with('foo:1', data)
+        pipe.hmset.assert_called_with('foo:1', data)
 
         # other saves will still save, sadly
-        conn.reset_mock()
+        pipe.reset_mock()
         foo.save()
-        conn.hmset.assert_called_once_with('foo:1', data)
+        pipe.hmset.assert_called_with('foo:1', data)
 
 
 def test_ttl(conn, pipe):
@@ -244,7 +242,7 @@ def test_partial_fields(conn, pipe):
     assert foo._loaded_field_names == {'id', 'name'}
     assert pipe.hmget.call_count == 1
 
-    pipe.reset_mocks()
+    pipe.reset_mock()
 
     # access another field
     assert foo.num == 20
@@ -256,7 +254,7 @@ def test_partial_fields(conn, pipe):
     assert foo._loaded_field_names == {'id', 'name', 'num'}
 
     # access again
-    print foo.num
+    str(foo.num)
     assert pipe.hget.call_count == 1
 
 
@@ -279,7 +277,25 @@ def test_get_multi(Foo, conn, pipe):
     assert foos[1].id == 2
 
     # Test partial fields access
-    pipe.reset_mocks()
+    pipe.reset_mock()
     foos = Foo.get([1, 2], fields=['name'])
 
     assert pipe.hmget.call_count == 2
+
+
+def test_save_existing_raises_exception(Foo, pipe):
+    """
+    Test that saving a new instance, whose id already exists, raises exception, unless
+    force_create=True
+    """
+    foo1 = Foo(id=1, name='foo1')
+    foo2 = Foo(id=1, name='foo2')
+
+    foo1.save()
+    with pytest.raises(AlreadyExists):
+        foo2.save()
+
+    assert Foo.get(id=1).name == 'foo1'
+
+    foo2.save(force_create=True)
+    assert Foo.get(id=1).name == 'foo2'
