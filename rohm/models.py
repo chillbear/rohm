@@ -298,8 +298,16 @@ class Model(six.with_metaclass(ModelMetaclass)):
             with conn.pipeline() as pipe:
                 try:
                     if self._new and not force_create:
+                        # For a new model, use WATCH to detect if someone else wrote to
+                        # this key in the meantime
                         pipe.watch(redis_key)
 
+                        exists = pipe.exists(redis_key)
+                        if exists:
+                            pipe.reset()
+                            raise AlreadyExists
+
+                    # Return to buffered mode (mostly in case of the watch command)
                     pipe.multi()
 
                     if cleaned_data:

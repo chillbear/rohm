@@ -4,8 +4,7 @@ from mock import call
 
 from rohm.models import Model
 from rohm import fields
-from rohm.exceptions import DoesNotExist
-# from redis.client import StrictPipeline
+from rohm.exceptions import DoesNotExist, AlreadyExists
 
 
 @pytest.fixture
@@ -282,3 +281,21 @@ def test_get_multi(Foo, conn, pipe):
     foos = Foo.get([1, 2], fields=['name'])
 
     assert pipe.hmget.call_count == 2
+
+
+def test_save_existing_raises_exception(Foo, pipe):
+    """
+    Test that saving a new instance, whose id already exists, raises exception, unless
+    force_create=True
+    """
+    foo1 = Foo(id=1, name='foo1')
+    foo2 = Foo(id=1, name='foo2')
+
+    foo1.save()
+    with pytest.raises(AlreadyExists):
+        foo2.save()
+
+    assert Foo.get(id=1).name == 'foo1'
+
+    foo2.save(force_create=True)
+    assert Foo.get(id=1).name == 'foo2'
