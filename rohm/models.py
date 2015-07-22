@@ -356,7 +356,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
             field.validate(val)
             cleaned_val = field.to_redis(val)
 
-            if separate_none and val is None:
+            if separate_none and cleaned_val is None:
                 none_keys.append(name)
             else:
                 cleaned_data[name] = cleaned_val
