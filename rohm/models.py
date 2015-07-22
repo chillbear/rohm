@@ -95,7 +95,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
         _data: Dictionary of {field_name: field_value}. Only real fields
         _loaded_field_names: A set of fields that have been loaded from Redis. Only includes
                              "real fields" (not RelatedModelField's)
-        _loaded_related_field_data: Stores any loaded related LiteModel's (from: RelatedModelField)
+        _loaded_related_field_data: Stores any loaded related Models (from: RelatedModelField)
         """
         self._data = {}
         self._new = _new
@@ -105,7 +105,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
 
         for key, val in field_data.items():
             # Populate self._data and self._loaded_related_field_data
-            # field_data can be both real fields and LiteModels (RelateModelField)
+            # field_data can be both real fields and Models (RelateModelField)
             if key in self._fields:
                 setattr(self, key, val)
 
@@ -130,29 +130,32 @@ class Model(six.with_metaclass(ModelMetaclass)):
         if self.track_modified_fields:
             self._reset_orig_data()
 
-    @property
-    def _id(self):
-        """ Return the id value (i.e. primary key) """
-        return getattr(self, self._id_field_name)
-
+    # ------------
+    # Classmethods
+    # ------------
     @classmethod
     def get(cls, ids=None, id=None, fields=None, allow_create=False, raise_missing_exception=None):
-        # get from redis
-        ids = ids or id
+        """
+        Get a rohm Model from Redis. Can specify one ID or multiple
 
+        - fields: A list/tuple to only load these fields (partial load)
+        - allow_create: If missing, allows it to be created. "create_from_id()" must be implemented
+        - raise_missing_exception: If missing, raise an exception, otherwise return None
+        """
+        ids = ids or id
         assert ids
 
         single = not isinstance(ids, (list, tuple))
 
         if raise_missing_exception is None:
             raise_missing_exception = single
-        # allow_create = allow_create or cls.allow_create_on_get
 
         if single:
             ids = [ids]
 
         if fields:
             if cls._id_field_name not in fields:
+                # Should also fetch the ID field too..
                 fields.append(cls._id_field_name)
 
         partial = bool(fields)
@@ -171,7 +174,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
         for id, result in zip(ids, results):
             if not result:
                 if allow_create:
-
+                    # If missing, try to create new model
                     instance = cls.create_from_id(id)
                     instances.append(instance)
                     continue
@@ -181,15 +184,19 @@ class Model(six.with_metaclass(ModelMetaclass)):
                     instances.append(None)
                     continue
 
+            # Dictionary of {field_name --> raw redis data}
             if partial:
                 raw_data = {k: v for k, v in zip(fields, result)}
             else:
                 raw_data = result
 
+            # Convert to native Python objects
             data = {}
             for k, v in raw_data.items():
                 if k in cls._fields:
                     data[k] = cls._convert_field_from_raw(k, v)
+
+            # Create the Model instance
             instance = cls(_new=False, _partial=partial, **data)
             instances.append(instance)
 
@@ -200,6 +207,9 @@ class Model(six.with_metaclass(ModelMetaclass)):
 
     @classmethod
     def set(cls, id=None, **data):
+        """
+        Write to a Model without fetching first
+        """
         redis_key = cls.generate_redis_key(id)
 
         if conn.exists(redis_key):
@@ -213,26 +223,160 @@ class Model(six.with_metaclass(ModelMetaclass)):
 
     @classmethod
     def create_from_id(cls, id):
+        """
+        Subclass should implement for allow_create=True
+        """
         raise NotImplementedError
+
+    @classmethod
+    def generate_redis_key(cls, id):
+        key = '{}:{}'.format(cls._key_prefix, id)
+        return key
 
     @classmethod
     def _convert_field_from_raw(cls, field_name, raw_val):
         """
-        For a given field name and raw data, get a cleaned data value
+        For a given field name and raw data, get a cleaned data value (as Python object)
         """
         field = cls._get_field(field_name)
         cleaned = field.from_redis(raw_val)
         return cleaned
 
+    @classmethod
+    def _get_field(cls, name):
+        return cls._fields[name]
+
+    @classmethod
+    def _get_field_names(cls):
+        return list(cls._fields.keys())
+
+    @classmethod
+    def _get_real_field_names(cls):
+        return list(cls._real_fields.keys())
+
+    # ----------
+    # Properties
+    # ----------
+    @property
+    def _id(self):
+        """ Return the id value (i.e. primary key) """
+        return getattr(self, self._id_field_name)
+
+    @property
+    def redis_key(self):
+        return self.get_redis_key()
+
+    def get_redis_key(self):
+        """ The Redis key (prefix:id) """
+        id = getattr(self, self._id_field_name)
+        if not id:
+            raise Exception('No primary key set!')
+
+        return self.generate_redis_key(id)
+
+    def save(self, force=False, modified_only=False):
+        """
+        Save model to Redis. Will create new one if it doesn't exist
+
+        - force: Save if we created a new instance but already exists in Redis
+        - modified_only: Only save modified fields
+        """
+        modified_only = modified_only or self.save_modified_only
+
+        redis_key = self.get_redis_key()
+
+        if self._new and not force and conn.exists(redis_key):
+            raise Exception('Object already exists')
+
+        modified_data = None
+
+        if modified_only and not self._new:
+            modified_data = self._get_modified_fields()
+            cleaned_data, none_keys = self.get_cleaned_data(data=modified_data)
+        else:
+            cleaned_data, none_keys = self.get_cleaned_data()
+
+        if cleaned_data or none_keys:
+            use_pipe = cleaned_data and none_keys or self.ttl
+
+            with redis_operation(conn, pipelined=use_pipe) as _conn:
+                if cleaned_data:
+                    _conn.hmset(redis_key, cleaned_data)
+
+                if none_keys:
+                    # Delete None values
+                    _conn.hdel(redis_key, *none_keys)
+
+                if self.ttl:
+                    _conn.expire(redis_key, self.ttl)
+
+                # Custom save hook
+                self.on_save(conn, modified_data=modified_data)
+
+            if self.track_modified_fields:
+                self._reset_orig_data()
+        else:
+            logger.warning('No save for %s', self)
+
+        self._new = False
+
+    def delete(self):
+        redis_key = self.get_redis_key()
+
+        with redis_operation(conn, pipelined=True) as _conn:
+            _conn.delete(redis_key)
+            self.on_delete(conn=_conn)
+
+    def on_save(self, conn, modified_data=None):
+        """ User-specified save code """
+        pass
+
+    def on_delete(self, conn):
+        """ User-specified delete code """
+        pass
+
+    def get_cleaned_data(self, data=None, separate_none=True):
+        """
+        Clean data to prepare to send to Redis.
+        TODO: maybe rename this function
+
+        - separate_none: move any None values into a separate list, and return
+          (non_none_data, none_keys)
+        """
+        cleaned_data = {}
+        none_keys = []
+
+        if data is None:
+            data = self._data
+        else:
+            data = data or {}
+
+        for name, val in data.items():
+            field = self._get_field(name)
+            field.validate(val)
+            cleaned_val = field.to_redis(val)
+
+            if separate_none and val is None:
+                none_keys.append(name)
+            else:
+                cleaned_data[name] = cleaned_val
+
+        if separate_none:
+            return cleaned_data, none_keys
+        else:
+            return cleaned_data
+
     def reload(self):
         """ Reload from Redis """
         return self.get(id=self.id)
 
+    # ---------------
+    # Private helpers
+    # ---------------
     def _get_field_from_redis(self, field_name):
         redis_key = self.get_redis_key()
         raw = conn.hget(redis_key, field_name)
         cleaned = self._convert_field_from_raw(field_name, raw)
-        # cleaned = self._get_field(field_name).from_redis(raw)
         return cleaned
 
     def _load_field_from_redis(self, field_name):
@@ -264,123 +408,6 @@ class Model(six.with_metaclass(ModelMetaclass)):
 
     def _get_related_id_field_name(self, field_name):
         return '{}_id'.format(field_name)
-
-    def get_or_create(self):
-        # create in Redis if it doesn't exist
-        pass
-
-    def save(self, force=False, modified_only=False):
-        # self.validate()
-        modified_only = modified_only or self.save_modified_only
-
-        redis_key = self.get_redis_key()
-
-        if self._new and not force and conn.exists(redis_key):
-            raise Exception('Object already exists')
-
-        modified_data = None
-
-        # logger.debug('Saving modified: %s', modified_data)
-        if modified_only and not self._new:
-            modified_data = self._get_modified_fields()
-            cleaned_data, none_keys = self.get_cleaned_data(data=modified_data)
-        else:
-            cleaned_data, none_keys = self.get_cleaned_data()
-
-        # print 'saving', cleaned_data, none_keys
-        if cleaned_data or none_keys:
-            use_pipe = cleaned_data and none_keys or self.ttl
-
-            with redis_operation(conn, pipelined=use_pipe) as _conn:
-                if cleaned_data:
-                    _conn.hmset(redis_key, cleaned_data)
-
-                if none_keys:
-                    _conn.hdel(redis_key, *none_keys)
-
-                if self.ttl:
-                    _conn.expire(redis_key, self.ttl)
-
-                # user specific saving
-                self.on_save(conn, modified_data=modified_data)
-
-            if self.track_modified_fields:
-                self._reset_orig_data()
-        else:
-            print 'warning no save'
-        # now it's been saved
-        self._new = False
-
-    def on_save(self, conn, modified_data=None):
-        pass
-
-    def delete(self):
-        redis_key = self.get_redis_key()
-
-        with redis_operation(conn, pipelined=True) as _conn:
-            _conn.delete(redis_key)
-            self.on_delete(conn=_conn)
-
-    def on_delete(self, conn):
-        pass
-
-    @classmethod
-    def _get_field(cls, name):
-        return cls._fields[name]
-
-    @classmethod
-    def _get_field_names(cls):
-
-        return list(cls._fields.keys())
-
-    @classmethod
-    def _get_real_field_names(cls):
-        return list(cls._real_fields.keys())
-
-    def get_cleaned_data(self, data=None, separate_none=True):
-        """
-        - separate_none: move any None values into a separate list, and return
-          (non_none_data, none_keys)
-        """
-        cleaned_data = {}
-        none_keys = []
-
-        if data is None:
-            data = self._data
-        else:
-            data = data or {}
-
-        # for name, val, field in self._get_data_with_fields():
-        for name, val in data.items():
-            field = self._get_field(name)
-            field.validate(val)
-            cleaned_val = field.to_redis(val)
-
-            if separate_none and val is None:
-                none_keys.append(name)
-            else:
-                cleaned_data[name] = cleaned_val
-
-        if separate_none:
-            return cleaned_data, none_keys
-        else:
-            return cleaned_data
-
-    def get_redis_key(self):
-        id = getattr(self, self._id_field_name)
-        if not id:
-            raise Exception('No primary key set!')
-
-        return self.generate_redis_key(id)
-
-    @property
-    def redis_key(self):
-        return self.get_redis_key()
-
-    @classmethod
-    def generate_redis_key(cls, id):
-        key = '{}:{}'.format(cls._key_prefix, id)
-        return key
 
     def _reset_orig_data(self):
         """

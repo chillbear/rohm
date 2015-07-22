@@ -46,7 +46,6 @@ class BaseField(object):
 
         return val
 
-    # this is the actual function called
     def to_redis(self, val):
         if self.allow_none and val is None:
             return None
@@ -114,7 +113,6 @@ class BooleanField(BaseField):
 class JSONField(BaseField):
     allowed_types = (dict, list, tuple)
 
-    # preprocess?
     encoder = json.JSONEncoder
 
     def _to_redis(self, val):
