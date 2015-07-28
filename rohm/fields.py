@@ -11,6 +11,8 @@ import pytz
 from pytz import utc
 
 
+NUMERIC_TYPES = tuple(list(six.integer_types) + [float])  # allow integers and floats
+
 class BaseField(object):
     allowed_types = None
 
@@ -80,10 +82,10 @@ class BaseField(object):
 
 
 class IntegerField(BaseField):
-    allowed_types = six.integer_types
+    allowed_types = NUMERIC_TYPES
 
     def _to_redis(self, val):
-        return str(val)
+        return str(int(val))
 
     def _from_redis(self, val):
         return int(val)
@@ -146,10 +148,10 @@ class DateTimeField(BaseField):
 
 
 class FloatField(BaseField):
-    allowed_types = tuple(list(six.integer_types) + [float])  # allow integers and floats
+    allowed_types = NUMERIC_TYPES
 
     def _to_redis(self, val):
-        return repr(val)
+        return str(val)
 
     def _from_redis(self, val):
         return float(val)
