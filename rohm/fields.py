@@ -149,7 +149,7 @@ class FloatField(BaseField):
     allowed_types = tuple(list(six.integer_types) + [float])  # allow integers and floats
 
     def _to_redis(self, val):
-        return str(val)
+        return repr(val)
 
     def _from_redis(self, val):
         return float(val)
