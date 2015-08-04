@@ -10,8 +10,8 @@ from rohm.utils import safe_unicode, safe_string
 import pytz
 from pytz import utc
 
+numeric_types = tuple(list(six.integer_types) + [float])  # allow integers and floats
 
-NUMERIC_TYPES = tuple(list(six.integer_types) + [float])  # allow integers and floats
 
 class BaseField(object):
     allowed_types = None
@@ -82,7 +82,7 @@ class BaseField(object):
 
 
 class IntegerField(BaseField):
-    allowed_types = NUMERIC_TYPES
+    allowed_types = numeric_types
 
     def _to_redis(self, val):
         return str(int(val))
