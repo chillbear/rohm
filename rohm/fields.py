@@ -145,6 +145,28 @@ class DateTimeField(BaseField):
         return dt
 
 
+class FloatField(BaseField):
+    allowed_types = tuple(list(six.integer_types) + [float])  # allow integers and floats
+
+    def _to_redis(self, val):
+        return str(val)
+
+    def _from_redis(self, val):
+        return float(val)
+
+
+class SetField(JSONField):
+    allowed_types = set
+
+    def _to_redis(self, val):
+        val = list(val)
+        return super(SetField, self)._to_redis(val)
+
+    def _from_redis(self, val):
+        val = super(SetField, self)._from_redis(val)
+        return set(val)
+
+
 class RelatedModelField(BaseField):
     def __init__(self, model_cls, *args, **kwargs):
         super(RelatedModelField, self).__init__(*args, **kwargs)

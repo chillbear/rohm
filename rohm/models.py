@@ -83,6 +83,8 @@ class Model(six.with_metaclass(ModelMetaclass)):
     track_modified_fields = True
     save_modified_only = True
     ttl = None
+    DoesNotExist = DoesNotExist
+    AlreadyExists = AlreadyExists
 
     def __init__(self, _new=True, _partial=False, **field_data):
         """
@@ -453,3 +455,25 @@ class Model(six.with_metaclass(ModelMetaclass)):
 
     def __str__(self):
         return str(self._id)
+
+
+class Singleton(Model):
+    singleton_cache_key = None
+
+    def get_redis_key(self):
+        return self.singleton_cache_key
+
+    @classmethod
+    def generate_redis_key(cls, id):
+        return cls.singleton_cache_key
+
+    @classmethod
+    def get(cls, fields=None, allow_create=False, raise_missing_exception=None):
+        SENTINEL_ID = 1
+        return super(Singleton, cls).get(
+            id=SENTINEL_ID,
+            fields=fields,
+            allow_create=allow_create,
+            raise_missing_exception=raise_missing_exception
+        )
+
