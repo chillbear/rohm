@@ -51,3 +51,15 @@ def test_datetime_field():
 
     foo = DefaultTimeModel.get(id=1)
     assert foo.created_at
+
+
+def test_set_field():
+    class SetModel(Model):
+        blahs = fields.SetField()
+
+    foo = SetModel(id=1, blahs=set(1, 2, 3))
+    foo.save()
+
+    foo = SetModel.get(id=1)
+    assert foo.blahs = set(1, 2, 3)
+
