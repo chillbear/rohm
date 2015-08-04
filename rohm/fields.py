@@ -10,6 +10,8 @@ from rohm.utils import safe_unicode, safe_string
 import pytz
 from pytz import utc
 
+numeric_types = tuple(list(six.integer_types) + [float])  # allow integers and floats
+
 
 class BaseField(object):
     allowed_types = None
@@ -80,10 +82,10 @@ class BaseField(object):
 
 
 class IntegerField(BaseField):
-    allowed_types = six.integer_types
+    allowed_types = numeric_types
 
     def _to_redis(self, val):
-        return str(val)
+        return str(int(val))
 
     def _from_redis(self, val):
         return int(val)
@@ -143,6 +145,16 @@ class DateTimeField(BaseField):
         dt = utc.localize(dt)
 
         return dt
+
+
+class FloatField(BaseField):
+    allowed_types = numeric_types
+
+    def _to_redis(self, val):
+        return repr(val)
+
+    def _from_redis(self, val):
+        return float(val)
 
 
 class RelatedModelField(BaseField):
