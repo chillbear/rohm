@@ -453,3 +453,24 @@ class Model(six.with_metaclass(ModelMetaclass)):
 
     def __str__(self):
         return str(self._id)
+
+
+class Singleton(Model):
+    singleton_cache_key = None
+
+    def get_redis_key(self):
+        return self.singleton_cache_key
+
+    @classmethod
+    def generate_redis_key(cls, id):
+        return self.singleton_cache_key
+
+    @classmethod
+    def get(cls, fields=None, allow_create=False, raise_missing_exception=None):
+        return super(Singleton, cls).get(
+            id=None,
+            fields=fields,
+            allow_create=allow_create,
+            raise_missing_exception=raise_missing_exception
+        )
+

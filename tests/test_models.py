@@ -2,7 +2,7 @@
 import pytest
 from mock import call
 
-from rohm.models import Model
+from rohm.models import Model, Singleton
 from rohm import fields
 from rohm.exceptions import DoesNotExist, AlreadyExists
 
@@ -299,3 +299,34 @@ def test_save_existing_raises_exception(Foo, pipe):
 
     foo2.save(force_create=True)
     assert Foo.get(id=1).name == 'foo2'
+
+@pytest.fixture
+def Bar():
+    class Bar(Singleton):
+        name = fields.CharField()
+        num = fields.IntegerField()
+    return Bar
+
+
+def test_singleton():
+    bar = Bar.get()
+    assert bar is None
+
+    bar = Bar(name="Mr. Singleton", num=1)
+    bar.save()
+
+    bar2 = Bar.get()
+    assert bar2.name == bar.name
+    assert bar2.num == bar.num
+
+    try:
+        Bar(name="Single Ton", num=2).save()
+        assert False
+    except AlreadyExists:
+        assert True
+
+    new_name = "Single Ton"
+    Bar(name=new_name, num=2).save(force_create=True)
+
+    bar3 = Bar.get()
+    assert bar3.name == new_name
