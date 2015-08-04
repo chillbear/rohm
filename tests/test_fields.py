@@ -57,9 +57,9 @@ def test_set_field():
     class SetModel(Model):
         blahs = fields.SetField()
 
-    foo = SetModel(id=1, blahs=set(1, 2, 3))
+    foo = SetModel(id=1, blahs=set([1, 2, 3]))
     foo.save()
 
     foo = SetModel.get(id=1)
-    assert foo.blahs = set(1, 2, 3)
+    assert foo.blahs = set([1, 2, 3])
 
