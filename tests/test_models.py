@@ -308,9 +308,12 @@ def Bar():
     return Bar
 
 
-def test_singleton():
-    bar = Bar.get()
-    assert bar is None
+def test_singleton(Bar):
+    try:
+        bar = Bar.get()
+        assert False
+    except Bar.DoesNotExist:
+        assert True
 
     bar = Bar(name="Mr. Singleton", num=1)
     bar.save()
