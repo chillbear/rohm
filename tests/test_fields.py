@@ -63,7 +63,6 @@ def test_float_field():
     assert foo.x == int_val
     foo = FloatModel.get(id=1)
     assert foo.x == int_val
-    assert isinstance(foo.x, int)
 
     float_val = 3.2
     bar = FloatModel(id=2, x=float_val)

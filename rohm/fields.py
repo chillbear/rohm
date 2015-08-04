@@ -154,9 +154,7 @@ class FloatField(BaseField):
         return repr(val)
 
     def _from_redis(self, val):
-        float_val = float(val)
-        int_val = int(float_val)
-        return float_val if int_val != float_val else int_val
+        return float(val)
 
 
 class RelatedModelField(BaseField):
