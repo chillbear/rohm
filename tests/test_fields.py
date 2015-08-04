@@ -51,3 +51,23 @@ def test_datetime_field():
 
     foo = DefaultTimeModel.get(id=1)
     assert foo.created_at
+
+def test_float_field():
+    class FloatModel(Model):
+        x = fields.FloatField()
+
+    int_val = 1
+    foo = FloatModel(x=int_val, id=1)
+    foo.save()
+
+    assert foo.x == int_val
+    foo = FloatModel.get(id=1)
+    assert foo.x == int_val
+    assert isinstance(foo.x, int)
+
+    float_val = 3.2
+    bar = FloatModel(id=2, x=float_val)
+    bar.save()
+
+    assert bar.x == float_val
+    assert FloatModel.get(id=2).x == float_val

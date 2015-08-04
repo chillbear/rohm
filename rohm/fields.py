@@ -148,13 +148,15 @@ class DateTimeField(BaseField):
 
 
 class FloatField(BaseField):
-    allowed_types = NUMERIC_TYPES
+    allowed_types = numeric_types
 
     def _to_redis(self, val):
-        return str(val)
+        return repr(val)
 
     def _from_redis(self, val):
-        return float(val)
+        float_val = float(val)
+        int_val = int(float_val)
+        return float_val if int_val != float_val else int_val
 
 
 class RelatedModelField(BaseField):
