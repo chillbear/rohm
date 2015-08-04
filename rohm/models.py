@@ -83,6 +83,8 @@ class Model(six.with_metaclass(ModelMetaclass)):
     track_modified_fields = True
     save_modified_only = True
     ttl = None
+    DoesNotExist = DoesNotExist
+    AlreadyExists = AlreadyExists
 
     def __init__(self, _new=True, _partial=False, **field_data):
         """
