@@ -463,12 +463,13 @@ class Singleton(Model):
 
     @classmethod
     def generate_redis_key(cls, id):
-        return self.singleton_cache_key
+        return cls.singleton_cache_key
 
     @classmethod
     def get(cls, fields=None, allow_create=False, raise_missing_exception=None):
+        SENTINEL_ID = 1
         return super(Singleton, cls).get(
-            id=None,
+            id=SENTINEL_ID,
             fields=fields,
             allow_create=allow_create,
             raise_missing_exception=raise_missing_exception
