@@ -458,14 +458,17 @@ class Model(six.with_metaclass(ModelMetaclass)):
 
 
 class Singleton(Model):
-    singleton_cache_key = None
+    redis_key = None
 
     def get_redis_key(self):
-        return self.singleton_cache_key
+        if not redis_key:
+            raise Exception("redis_key not specified on class")
+
+        return self.redis_key
 
     @classmethod
     def generate_redis_key(cls, id):
-        return cls.singleton_cache_key
+        return cls.redis_key
 
     @classmethod
     def get(cls, fields=None, allow_create=False, raise_missing_exception=None):
