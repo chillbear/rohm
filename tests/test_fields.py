@@ -52,6 +52,7 @@ def test_datetime_field():
     foo = DefaultTimeModel.get(id=1)
     assert foo.created_at
 
+
 def test_float_field():
     class FloatModel(Model):
         x = fields.FloatField()
@@ -70,3 +71,19 @@ def test_float_field():
 
     assert bar.x == float_val
     assert FloatModel.get(id=2).x == float_val
+
+
+def test_point_field():
+    class PointModel(Model):
+        point = fields.PointField()
+
+    # Test both int and float values
+    coord = {'x': 1, 'y': 2.5}
+    foo = PointModel(point=coord, id=1)
+    foo.save()
+
+    assert foo.point['x'] == coord['x']
+    assert foo.point['y'] == coord['y']
+    foo = PointModel.get(id=1)
+    assert foo.point['x'] == coord['x']
+    assert foo.point['y'] == coord['y']

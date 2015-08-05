@@ -157,6 +157,23 @@ class FloatField(BaseField):
         return float(val)
 
 
+class PointField(BaseField):
+    def _to_redis(self, val):
+        point_dict = {'x': val['x'], 'y': val['y']}
+        return json.dumps(point_dict)
+
+    def _from_redis(self, val):
+        point_dict = json.loads(val)
+        return point_dict
+
+    def _validate(self, val):
+        if 'x' not in val or 'y' not in val:
+            raise Exception("Point dict must have contain fields 'x' and 'y'")
+
+        if type(val['x']) not in numeric_types or type(val['y']) not in numeric_types:
+            raise Exception("Point values must be numeric types")
+
+
 class RelatedModelField(BaseField):
     def __init__(self, model_cls, *args, **kwargs):
         super(RelatedModelField, self).__init__(*args, **kwargs)
