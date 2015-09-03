@@ -330,7 +330,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
             if self.track_modified_fields:
                 self._reset_orig_data()
         else:
-            logger.warning('No save for %s', self)
+            logger.debug('No save for %s', self)
 
         self._new = False
 
