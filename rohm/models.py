@@ -275,7 +275,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
 
         return self.generate_redis_key(id)
 
-    def save(self, modified_only=False, force_create=False):
+    def save(self, modified_only=False, force_create=False, pipe=None):
         """
         Save model to Redis. Will create new one if it doesn't exist
 
@@ -294,38 +294,52 @@ class Model(six.with_metaclass(ModelMetaclass)):
         else:
             cleaned_data, none_keys = self.get_cleaned_data()
 
+        if pipe is not None:
+            is_shared_pipeline = True
+        else:
+            pipe = conn.pipeline()
+            is_shared_pipeline = False
+
         if cleaned_data or none_keys:
-            with conn.pipeline() as pipe:
-                try:
-                    if self._new and not force_create:
-                        # For a new model, use WATCH to detect if someone else wrote to
-                        # this key in the meantime
-                        pipe.watch(redis_key)
+            try:
+                if self._new and not force_create and not is_shared_pipeline:
+                    # For a new model, use WATCH to detect if someone else wrote to
+                    # this key in the meantime. This also puts us in normal execution mode
+                    # Don't do this for a multi-object pipelined save
+                    pipe.watch(redis_key)
 
-                        exists = pipe.exists(redis_key)
-                        if exists:
-                            pipe.reset()
-                            raise AlreadyExists
+                    exists = pipe.exists(redis_key)
+                    if exists:
+                        pipe.reset()
+                        raise AlreadyExists
 
-                    # Return to buffered mode (mostly in case of the watch command)
+                    # Return to buffered MULTI mode
                     pipe.multi()
 
-                    if cleaned_data:
-                        pipe.hmset(redis_key, cleaned_data)
+                if cleaned_data:
+                    pipe.hmset(redis_key, cleaned_data)
 
-                    if none_keys:
-                        # Delete None values
-                        pipe.hdel(redis_key, *none_keys)
+                if none_keys:
+                    # Delete None values
+                    pipe.hdel(redis_key, *none_keys)
 
-                    if self.ttl:
-                        pipe.expire(redis_key, self.ttl)
+                if self.ttl:
+                    pipe.expire(redis_key, self.ttl)
 
-                    # Custom save hook
-                    self.on_save(conn, modified_data=modified_data)
+                # Custom save hook
+                self.on_save(conn, modified_data=modified_data)
 
+                if not is_shared_pipeline:
                     pipe.execute()
-                except redis.WatchError:
-                    raise AlreadyExists
+            except redis.WatchError:
+                pipe.reset()
+                raise AlreadyExists
+            except:
+                # We only need to do pipe.reset() for exceptions, so putting it in except
+                # rather than in a finally block. (For a shared transaction save() we want to
+                # NOT call .reset() or the .command_stack will be cleared)
+                pipe.reset()
+                raise
 
             if self.track_modified_fields:
                 self._reset_orig_data()

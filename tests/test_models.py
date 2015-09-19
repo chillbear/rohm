@@ -4,6 +4,7 @@ from mock import call
 
 from rohm.models import Model
 from rohm import fields
+from rohm.connection import get_connection
 from rohm.exceptions import DoesNotExist, AlreadyExists
 
 
@@ -217,8 +218,6 @@ def test_ttl(conn, pipe):
     foo = Foo(id=1, name='foo')
     foo.save()
 
-    # pipe.hmset.assert_called_with('foo:1', {'id': '1', 'name': 'foo'})
-    # pipe.expire.assert_called_with('foo:1', 30)
     pipe.assert_called_with('hmset', 'foo:1', {'id': '1', 'name': 'foo'})
     pipe.assert_called_with('expire', 'foo:1', 30)
 
@@ -299,3 +298,29 @@ def test_save_existing_raises_exception(Foo, pipe):
 
     foo2.save(force_create=True)
     assert Foo.get(id=1).name == 'foo2'
+
+
+def test_atomic_transaction_multiple_saves(Foo, pipe):
+    """
+    Test that saving a new instance, whose id already exists, raises exception, unless
+    force_create=True
+    """
+    foo1 = Foo(id=1, name='foo1')
+    foo2 = Foo(id=2, name='foo2')
+    foo1.save()
+    foo2.save()
+
+    conn = get_connection()
+
+    foo1.name = 'foo10'
+    foo2.name = 'foo20'
+
+    # TODO figure out how to test that there was just one transaction
+    with conn.pipeline(transaction=True) as _pipe:
+        foo1.save(pipe=_pipe)
+        foo2.save(pipe=_pipe)
+
+        _pipe.execute()
+
+    assert Foo.get(id=1).name == 'foo10'
+    assert Foo.get(id=2).name == 'foo20'
