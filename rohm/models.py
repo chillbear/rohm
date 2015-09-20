@@ -143,8 +143,12 @@ class Model(six.with_metaclass(ModelMetaclass)):
         - allow_create: If missing, allows it to be created. "create_from_id()" must be implemented
         - raise_missing_exception: If missing, raise an exception, otherwise return None
         """
-        ids = ids or id
-        assert ids
+        ids = id or ids
+
+        assert ids is not None
+
+        if not ids:
+            return []
 
         single = not isinstance(ids, (list, tuple))
 
