@@ -1,5 +1,6 @@
 venv
 *.pyc
+.tox
 staticfiles
 dump.rdb
 .env
@@ -16,3 +17,4 @@ profile_default
 *.bk
 
 settings_local.py
+rohm.egg-info

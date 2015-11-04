@@ -24,10 +24,8 @@ setup(
     keywords="doordash",
     # url="http://packages.python.org/an_example_pypi_project",
     packages=find_packages(),
-    scripts=[
-    ],
-    dependency_links = [
-    ],
+    scripts=[],
+    dependency_links=[],
     install_requires=[
         'python-dateutil>=2.4.1',
         'pytz>=2014.10',
