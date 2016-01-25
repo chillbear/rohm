@@ -257,6 +257,36 @@ def test_partial_fields(conn, pipe):
     assert pipe.hget.call_count == 1
 
 
+def test_partial_fields_with_nonexistent_key():
+    """
+    Test fetching object that doesn't detect with partial fields.
+    There was a bug with reading the HMGET result
+    """
+    class Foo(Model):
+        name = fields.CharField()
+        num = fields.IntegerField()
+
+        @classmethod
+        def create_from_id(cls, id):
+            instance = cls(id=id)
+            instance.save()
+            return instance
+
+    with pytest.raises(DoesNotExist):
+        Foo.get(1, fields=['name'])
+
+    foo = Foo.get(1, fields=['name'], allow_create=True)
+    assert foo.id == 1
+    assert foo.name is None
+
+    # Test with batch get
+    foos = Foo.get(ids=[10, 11], allow_create=True, fields=['name'])
+    foo1 = foos[0]
+    foo2 = foos[1]
+    assert foo1.id == 10
+    assert foo2.id == 11
+
+
 def test_get_multi(Foo, conn, pipe):
 
     foo1 = Foo(id=1, name='foo', num=10)

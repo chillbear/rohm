@@ -8,7 +8,7 @@ from rohm import model_registry
 from rohm.fields import BaseField, IntegerField, RelatedModelField, RelatedModelIdField
 from rohm.connection import get_connection
 from rohm.exceptions import AlreadyExists, DoesNotExist
-from rohm.utils import redis_operation
+from rohm.utils import redis_operation, hmget_result_is_nonexistent
 
 conn = get_connection()
 
@@ -177,7 +177,14 @@ class Model(six.with_metaclass(ModelMetaclass)):
 
         instances = []
         for id, result in zip(ids, results):
-            if not result:
+            if partial:
+                # HMGET returns list of Nones for non-existent key
+                exists = not hmget_result_is_nonexistent(result)
+            else:
+                # Check for truthy (not {} or None)
+                exists = bool(result)
+
+            if not exists:
                 if allow_create:
                     # If missing, try to create new model
                     instance = cls.create_from_id(id)

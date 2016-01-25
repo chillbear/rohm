@@ -44,3 +44,11 @@ def safe_string(value, encoding='utf-8'):
             value = value.encode('utf-8', 'replace')
 
     return value
+
+
+def hmget_result_is_nonexistent(result):
+    """
+    HMGET returns an array of [None, None...] for a non-existent key.
+    This helper detects that
+    """
+    return all(val is None for val in result)
