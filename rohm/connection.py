@@ -30,7 +30,7 @@ def get_default_connection():
 
 
 def get_connection():
-    """ Deprecated function """
+    """ Alias for get_default_connection() """
     return get_default_connection()
 
 
