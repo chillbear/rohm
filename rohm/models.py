@@ -6,11 +6,9 @@ import redis
 
 from rohm import model_registry
 from rohm.fields import BaseField, IntegerField, RelatedModelField, RelatedModelIdField
-from rohm.connection import get_connection
+from rohm.connection import get_default_connection, create_connection
 from rohm.exceptions import AlreadyExists, DoesNotExist
 from rohm.utils import redis_operation, hmget_result_is_nonexistent
-
-conn = get_connection()
 
 
 logger = logging.getLogger(__name__)
@@ -83,6 +81,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
     track_modified_fields = True
     save_modified_only = True
     ttl = None
+    connection = None
 
     def __init__(self, _new=True, _partial=False, **field_data):
         """
@@ -143,6 +142,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
         - allow_create: If missing, allows it to be created. "create_from_id()" must be implemented
         - raise_missing_exception: If missing, raise an exception, otherwise return None
         """
+        conn = cls.get_connection()
         ids = id or ids
 
         assert ids is not None
@@ -222,6 +222,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
         """
         Write to a Model without fetching first
         """
+        conn = cls.get_connection()
         redis_key = cls.generate_redis_key(id)
 
         if conn.exists(redis_key):
@@ -244,6 +245,22 @@ class Model(six.with_metaclass(ModelMetaclass)):
     def generate_redis_key(cls, id):
         key = '{}:{}'.format(cls._key_prefix, id)
         return key
+
+    @classmethod
+    def set_connection(cls, connection):
+        """
+        Configure the Redis connection for this model
+        """
+        cls.connection = connection
+
+    @classmethod
+    def set_connection_settings(cls, **settings):
+        connection = create_connection(**settings)
+        cls.connection = connection
+
+    @classmethod
+    def get_connection(cls):
+        return cls.connection or get_default_connection()
 
     @classmethod
     def _convert_field_from_raw(cls, field_name, raw_val):
@@ -293,6 +310,8 @@ class Model(six.with_metaclass(ModelMetaclass)):
         - force_create: Save if we created a new instance but already exists in Redis
         - modified_only: Only save modified fields
         """
+        conn = self.get_connection()
+
         modified_only = modified_only or self.save_modified_only
 
         redis_key = self.get_redis_key()
@@ -360,6 +379,8 @@ class Model(six.with_metaclass(ModelMetaclass)):
         self._new = False
 
     def delete(self):
+        conn = self.get_connection()
+
         redis_key = self.get_redis_key()
 
         with redis_operation(conn, pipelined=True) as _conn:
@@ -413,6 +434,8 @@ class Model(six.with_metaclass(ModelMetaclass)):
     # Private helpers
     # ---------------
     def _get_field_from_redis(self, field_name):
+        conn = self.get_connection()
+
         redis_key = self.get_redis_key()
         raw = conn.hget(redis_key, field_name)
         cleaned = self._convert_field_from_raw(field_name, raw)
