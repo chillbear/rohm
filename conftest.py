@@ -45,15 +45,9 @@ pipeline_methods = [
 
 @pytest.fixture
 def conn(commonsetup, mocker):
-    from rohm.connection import create_connection
-    import rohm.connection
-    # import ipdb; ipdb.set_trace()
-    conn = create_connection()
-
-    # mocked = mocker.patch('rohm.connection', wraps=connection)
-    mocked_conn = mocker.patch.object(rohm.connection, 'get_default_connection', return_value=conn)
-
-    return mocked_conn
+    # For now forgo the mocking stuff, a bit hard to get right
+    from rohm.connection import get_connection
+    return get_connection()
 
 
 class PipelineSpy(object):

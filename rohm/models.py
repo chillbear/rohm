@@ -255,8 +255,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
 
     @classmethod
     def set_connection_settings(cls, **settings):
-        connection = create_connection(**settings)
-        cls.connection = connection
+        cls.connection = create_connection(**settings)
 
     @classmethod
     def get_connection(cls):
