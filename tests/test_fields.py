@@ -1,10 +1,6 @@
 
-import pytest
-from mock import call
-
 from rohm.models import Model
 from rohm import fields
-from rohm.exceptions import DoesNotExist
 from rohm.utils import utcnow
 
 
@@ -51,6 +47,7 @@ def test_datetime_field():
 
     foo = DefaultTimeModel.get(id=1)
     assert foo.created_at
+
 
 def test_float_field():
     class FloatModel(Model):

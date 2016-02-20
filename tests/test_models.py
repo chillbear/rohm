@@ -111,10 +111,8 @@ class TestNoneField(object):
           None, vs not having loaded the field at all
         - try saving a field from None -> something, and vice versa
         """
-
         class Foo(Model):
             name = fields.CharField()
-        return Foo
 
         foo = Foo(id=1)
         assert foo.name is None
@@ -138,6 +136,7 @@ class TestNoneField(object):
         assert foo._get_modified_fields() == {'name': 'asdf'}
         foo.save()
         pipe.hmset.assert_called_with(redis_key, {'name': 'asdf'})
+
         assert conn.hgetall(redis_key) == {'id': '1', 'name': 'asdf'}
 
         pipe.reset_mock()
@@ -165,8 +164,6 @@ class TestNoneField(object):
         foo.a = 'alpha'
         foo.b = None
         foo.save()
-
-        assert conn.mock_calls[-1] == call.pipeline()
 
         pipe.hmset.assert_called_with('foo:1', {'a': 'alpha'})
 
@@ -330,7 +327,7 @@ def test_save_existing_raises_exception(Foo, pipe):
     assert Foo.get(id=1).name == 'foo2'
 
 
-def test_atomic_transaction_multiple_saves(Foo, pipe):
+def test_atomic_transaction_multiple_saves(Foo, conn, pipe):
     """
     Test that saving a new instance, whose id already exists, raises exception, unless
     force_create=True
@@ -339,8 +336,6 @@ def test_atomic_transaction_multiple_saves(Foo, pipe):
     foo2 = Foo(id=2, name='foo2')
     foo1.save()
     foo2.save()
-
-    conn = get_connection()
 
     foo1.name = 'foo10'
     foo2.name = 'foo20'

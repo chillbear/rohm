@@ -1,5 +1,5 @@
 import pytest
-from rohm.connection import get_connection
+from rohm.connection import get_default_connection
 from rohm import model_registry
 import mock
 import logging
@@ -16,7 +16,7 @@ def initialsetup():
 
 @pytest.yield_fixture(autouse=True)
 def commonsetup():
-    conn = get_connection()
+    conn = get_default_connection()
     conn.flushdb()
 
     model_registry.clear()
@@ -45,11 +45,9 @@ pipeline_methods = [
 
 @pytest.fixture
 def conn(commonsetup, mocker):
-    from rohm.models import conn
-
-    mocked = mocker.patch('rohm.models.conn', wraps=conn)
-
-    return mocked
+    # For now forgo the mocking stuff, a bit hard to get right
+    from rohm.connection import get_connection
+    return get_connection()
 
 
 class PipelineSpy(object):
