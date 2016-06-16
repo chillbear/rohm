@@ -309,6 +309,32 @@ def test_get_multi(Foo, conn, pipe):
     assert pipe.hmget.call_count == 2
 
 
+def test_get_multi_allow_create_exception():
+    """
+    Test case of multi get and allow_create=True, handle exceptions from create_by_id
+    """
+    class Foo(Model):
+        name = fields.CharField()
+
+        @classmethod
+        def create_from_id(cls, id):
+            if id == 10:
+                raise Exception('Cannot make this')
+            else:
+                instance = cls(id=id)
+                instance.save()
+                return instance
+
+    # Test with batch get, id=10 should fail with None
+    foos = Foo.get(ids=[1, 10], allow_create=True)
+    assert foos[0].id == 1
+    assert foos[1] is None
+
+    # Single get should still raise DoesNotExist for now
+    with pytest.raises(DoesNotExist):
+        Foo.get(id=10)
+
+
 def test_save_existing_raises_exception(Foo, pipe):
     """
     Test that saving a new instance, whose id already exists, raises exception, unless
