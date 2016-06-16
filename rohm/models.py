@@ -189,10 +189,14 @@ class Model(six.with_metaclass(ModelMetaclass)):
                     # If missing, try to create new model
                     try:
                         instance = cls.create_from_id(id)
-                        instances.append(instance)
                     except:
                         logger.warning('Could not create object from id %s', id)
-                        instances.append(None)
+                        if raise_missing_exception:
+                            raise DoesNotExist
+                        else:
+                            instances.append(None)
+                    else:
+                        instances.append(instance)
                 elif raise_missing_exception:
                     raise DoesNotExist
                 else:
