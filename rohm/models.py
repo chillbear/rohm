@@ -195,8 +195,10 @@ class Model(six.with_metaclass(ModelMetaclass)):
                             raise DoesNotExist
                         else:
                             instances.append(None)
+                            continue
                     else:
                         instances.append(instance)
+                        continue
                 elif raise_missing_exception:
                     raise DoesNotExist
                 else:
