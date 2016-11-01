@@ -2,7 +2,7 @@
 import pytest
 from mock import call
 
-from rohm.models import Model
+from rohm.models import Model, ROHM_ENABLE_TRANSACTION
 from rohm import fields
 from rohm.connection import get_connection
 from rohm.exceptions import DoesNotExist, AlreadyExists
@@ -288,15 +288,35 @@ def test_get_multi(Foo, conn, pipe):
 
     foo1 = Foo(id=1, name='foo', num=10)
     foo1.save()
+    if ROHM_ENABLE_TRANSACTION:
+        assert pipe.hgetall.call_args_list == []
+    else:
+        # Expect to have an extra get to check conflict when transaction is disabled
+        assert pipe.hgetall.call_args_list == [call('foo:1')]
+
     foo2 = Foo(id=2, name='bar', num=20)
     foo2.save()
+    if ROHM_ENABLE_TRANSACTION:
+        assert pipe.hgetall.call_args_list == []
+    else:
+        pipe.hgetall.call_args_list == [
+            call('foo:1'),
+            call('foo:2')
+        ]
 
     foos = Foo.get([1, 2])
-
-    assert pipe.hgetall.call_args_list == [
-        call('foo:1'),
-        call('foo:2'),
-    ]
+    if ROHM_ENABLE_TRANSACTION:
+        assert pipe.hgetall.call_args_list == [
+            call('foo:1'),
+            call('foo:2'),
+        ]
+    else:
+        assert pipe.hgetall.call_args_list == [
+            call('foo:1'),
+            call('foo:2'),
+            call('foo:1'),
+            call('foo:2'),
+        ]
 
     assert foos[0].id == 1
     assert foos[0].name == 'foo'
