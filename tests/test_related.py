@@ -1,7 +1,7 @@
 import pytest
 from mock import call
 
-from rohm.models import Model
+from rohm.models import Model, ROHM_ENABLE_TRANSACTION
 from rohm import fields
 
 
@@ -35,7 +35,10 @@ def test_related(Foo, Bar, conn, pipe):
 
     foo = Foo.get(1)
 
-    assert pipe.hgetall.call_count == 1
+    if ROHM_ENABLE_TRANSACTION:
+        assert pipe.hgetall.call_count == 1
+    else:
+        assert pipe.hgetall.call_count == 4
     assert pipe.hgetall.call_args == call(key)
 
     pipe.reset_mock()

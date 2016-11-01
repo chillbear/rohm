@@ -1,5 +1,6 @@
 import copy
 import logging
+import os
 
 import six
 import redis
@@ -12,7 +13,7 @@ from rohm.utils import redis_operation, hmget_result_is_nonexistent
 
 
 logger = logging.getLogger(__name__)
-
+ROHM_ENABLE_TRANSACTION = os.environ.get('ROHM_ENABLE_TRANSACTION', 'True').lower() in ['true', '1']
 
 class ModelMetaclass(type):
     def __new__(meta, name, bases, attrs):
@@ -165,7 +166,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
 
         partial = bool(fields)
 
-        pipe = conn.pipeline()
+        pipe = conn.pipeline(transaction=ROHM_ENABLE_TRANSACTION)
         for id in ids:
             redis_key = cls.generate_redis_key(id)
             if partial:
@@ -335,7 +336,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
         if pipe is not None:
             is_shared_pipeline = True
         else:
-            pipe = conn.pipeline()
+            pipe = conn.pipeline(transaction=ROHM_ENABLE_TRANSACTION)
             is_shared_pipeline = False
 
         if cleaned_data or none_keys:
@@ -344,15 +345,31 @@ class Model(six.with_metaclass(ModelMetaclass)):
                     # For a new model, use WATCH to detect if someone else wrote to
                     # this key in the meantime. This also puts us in normal execution mode
                     # Don't do this for a multi-object pipelined save
-                    pipe.watch(redis_key)
+                    if ROHM_ENABLE_TRANSACTION:
+                        # Old implementation with transaction
+                        pipe.watch(redis_key)
 
-                    exists = pipe.exists(redis_key)
-                    if exists:
-                        pipe.reset()
-                        raise AlreadyExists
+                        exists = pipe.exists(redis_key)
+                        if exists:
+                            pipe.reset()
+                            raise AlreadyExists
 
-                    # Return to buffered MULTI mode
-                    pipe.multi()
+                        # Return to buffered MULTI mode
+                        pipe.multi()
+
+                    # If get(redis_key) returns a different value and not empty
+                    elif redis_key:
+                        try:
+                            existing_values = conn.hgetall(redis_key)
+                            if existing_values and cleaned_data != existing_values:
+                                raise AlreadyExists
+
+                        except AlreadyExists:
+                            pipe.reset()
+                            # Need to see how to rewrite logic here w/o transaction
+                            raise AlreadyExists
+                        except:
+                            pass
 
                 if cleaned_data:
                     pipe.hmset(redis_key, cleaned_data)
@@ -371,6 +388,7 @@ class Model(six.with_metaclass(ModelMetaclass)):
                     pipe.execute()
             except redis.WatchError:
                 pipe.reset()
+                # Need to see how to rewrite logic here w/o transaction
                 raise AlreadyExists
             except:
                 # We only need to do pipe.reset() for exceptions, so putting it in except
